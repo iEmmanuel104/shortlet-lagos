@@ -121,6 +121,7 @@ export default class UserService {
             where[Op.or] = [
                 { firstName: { [Op.iLike]: `%${query}%` } },
                 { lastName: { [Op.iLike]: `%${query}%` } },
+                { username: { [Op.iLike]: `%${query}%` } },
                 { email: { [Op.iLike]: `%${query}%` } },
                 Sequelize.where(Sequelize.fn('concat', Sequelize.col('User.firstName'), ' ', Sequelize.col('User.lastName')), { [Op.iLike]: `%${query}%` }),
             ];
