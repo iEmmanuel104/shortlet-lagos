@@ -1,4 +1,4 @@
-import { AuthToken, DecodedTokenData, ENCRYPTEDTOKEN } from '../utils/interface';
+import { DecodedTokenData, ENCRYPTEDTOKEN } from '../utils/interface';
 import { Request, Response, NextFunction } from 'express';
 import { UnauthorizedError, NotFoundError, ForbiddenError } from '../utils/customErrors';
 import User from '../models/user.model';
@@ -39,63 +39,63 @@ export function AdminAuthenticatedController<T = AdminAuthenticatedRequest>(
     };
 }
 
-export const basicAuth = function (tokenType: AuthToken) {
+export const basicAuth = function () {
     return async (req: Request, res: Response, next: NextFunction) => {
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith('Bearer'))
             return next(new UnauthorizedError('Invalid authorization header'));
 
         const jwtToken = authHeader.split(' ')[1];
-        if (req.method === 'GET' && req.path === '/authtoken') {
-            const payload = (AuthUtil.verifyToken(jwtToken, tokenType)) as unknown as DecodedTokenData;
+
+        try {
+            const payload = AuthUtil.decodeToken(jwtToken) as unknown as DecodedTokenData;
+            if (!payload || !payload.user || !payload.user.walletAddress) {
+                throw new UnauthorizedError('Invalid token');
+            }
+
             const user: User | null = await UserService.viewSingleUser(payload.user.id);
-            const accessToken = await AuthUtil.generateToken({ type: 'access', user });
+            if (!user) {
+                throw new NotFoundError('User not found');
+            }
 
-            return res.status(200).json({
-                status: 'success',
-                message: 'Refresh successful',
-                data: {
-                    accessToken,
-                },
-            });
+            if (req.method === 'GET' && req.path === '/refreshtoken' && payload.tokenType === 'refresh') {
+
+                AuthUtil.verifyToken(jwtToken, user.walletAddress);
+
+                const newAccessToken = await AuthUtil.generateToken({ type: 'access', user });
+
+                return res.status(200).json({
+                    status: 'success',
+                    message: 'Token refreshed successfully',
+                    data: {
+                        accessToken: newAccessToken,
+                    },
+                });
+            }
+
+            AuthUtil.verifyToken(jwtToken, user.walletAddress);
+
+            const key = `${payload.tokenType}_token:${user.id}`;
+            const cachedToken = await TokenCacheUtil.getTokenFromCache(key);
+
+            if (cachedToken !== jwtToken) {
+                throw new UnauthorizedError('Invalid token');
+            }
+
+            if (user.settings.isBlocked) {
+                throw new ForbiddenError('Account blocked. Please contact support');
+            }
+
+            if (user.settings.isDeactivated) {
+                throw new ForbiddenError('Account deactivated. Please contact support');
+            }
+
+            (req as AuthenticatedRequest).user = user;
+
+            next();
+        } catch (error) {
+            next(error);
         }
-
-        const payload = AuthUtil.verifyToken(jwtToken, tokenType);
-
-        const tokenData = payload as unknown as DecodedTokenData;
-        logger.payload('Token data', tokenData);
-        tokenData.token = jwtToken;
-
-        if (tokenData.tokenType !== tokenType) {
-            return next(new UnauthorizedError('You are not authorized to perform this action'));
-        }
-
-        const key = `${tokenType}_token:${tokenData.user.id}`;
-        const token = await TokenCacheUtil.getTokenFromCache(key);
-
-        if (token !== jwtToken) {
-            return next(new UnauthorizedError('You are not authorized to perform this action'));
-        }
-
-        const user: User | null = await UserService.viewSingleUser(tokenData.user.id);
-
-        if (!user) {
-            return next(new NotFoundError('Oops User not found'));
-        }
-
-        if (user.settings.isBlocked) {
-            throw new ForbiddenError('Oops! Your account has been blocked. Please contact support');
-        }
-
-        if (user.settings.isDeactivated) {
-            throw new ForbiddenError('Oops! This account has been deactivated by the owner. Please contact support');
-        }
-
-        (req as AuthenticatedRequest).user = user;
-
-        logger.authorized('User authorized');
-
-        next();
     };
 };
 
@@ -146,7 +146,7 @@ export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
 export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
     // check if the request has an authorization header and it is not an iAdmin request
     if (req.headers.authorization && !req.headers['x-iadmin-access'] && req.headers['x-iadmin-access'] !== 'true') {
-        return basicAuth('access')(req, res, next);
+        return basicAuth()(req, res, next);
     }
     return next();
 };
