@@ -1,6 +1,7 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, IsUUID, PrimaryKey, Default } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, IsUUID, PrimaryKey, Default, HasOne } from 'sequelize-typescript';
 import User from './user.model';
 import Investment from './investment.model';
+import PropertyStats from './propertyStats.model';
 
 @Table
 export default class Property extends Model<Property | IProperty> {
@@ -38,14 +39,10 @@ export default class Property extends Model<Property | IProperty> {
         gallery: string[];
 
     @Column(DataType.JSONB)
-        stats: {
+        metrics: {
             PRY: number;
             PAR: number;
-            visit_count: number;
             fund_raising_goal: number;
-            investment_count: number;
-            rating: number;
-            rating_count: number;
         };
 
     @Column(DataType.JSONB)
@@ -60,6 +57,11 @@ export default class Property extends Model<Property | IProperty> {
     @ForeignKey(() => User)
     @Column
         ownerId: string;
+
+    
+    // Relationships
+    @HasOne(() => PropertyStats, { onDelete: 'CASCADE' })
+        stats: PropertyStats;
 
     @BelongsTo(() => User)
         owner: User;
@@ -83,14 +85,10 @@ export interface IProperty {
     };
     price: number;
     gallery: string[];
-    stats: {
+    metrics: {
         PRY: number;
         PAR: number;
-        visit_count: number;
         fund_raising_goal: number;
-        investment_count: number;
-        rating: number;
-        rating_count: number;
     };
     shares: {
         total: number;
