@@ -43,7 +43,7 @@ export default class ReviewService {
             include: [{
                 model: User,
                 as: 'reviewer',
-                attributes: ['id', 'firstName', 'lastName', 'displayImage', 'email'],
+                attributes: ['id', 'firstName', 'lastName', 'username', 'displayImage', 'email'],
             }],
         });
         return reviews;
