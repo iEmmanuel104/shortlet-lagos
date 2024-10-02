@@ -32,6 +32,17 @@ export default class User extends Model<User | IUser> {
     @Column
         id: string;
 
+    
+    @Unique
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        set(value: string) {
+            this.setDataValue('walletAddress', value.toLowerCase());
+        },
+    })
+        walletAddress: string;
+    
     @IsEmail
     @Index
     @Column({
@@ -96,6 +107,7 @@ export default class User extends Model<User | IUser> {
         status: {
         activated: boolean;
         emailVerified: boolean;
+        walletVerified: boolean;
     };
 
     @Column({
@@ -192,6 +204,7 @@ export default class User extends Model<User | IUser> {
 }
 
 export interface IUser {
+    walletAddress: string;
     email: string;
     firstName: string;
     lastName: string;
@@ -200,6 +213,7 @@ export interface IUser {
     status: {
         activated: boolean;
         emailVerified: boolean;
+        walletVerified: boolean;
     };
     displayImage?: string;
     fullName?: string;
