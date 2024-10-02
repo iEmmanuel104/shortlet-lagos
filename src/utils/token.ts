@@ -74,7 +74,6 @@ class TokenCacheUtil {
 
 class AuthUtil {
 
-
     static getSecretKeyForTokenType(type: ENCRYPTEDTOKEN): { secretKey: string, expiry: number } {
         switch (type) {
         case 'access':
