@@ -4,6 +4,7 @@ import User from '../models/user.model';
 import Investment from '../models/investment.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
+import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
 
 export interface IViewPropertiesQuery {
     page?: number;
@@ -18,6 +19,7 @@ export interface IViewPropertiesQuery {
 export default class PropertyService {
     static async addProperty(propertyData: IProperty, transaction?: Transaction): Promise<Property> {
         const newProperty = await Property.create({ ...propertyData }, { transaction });
+        if (newProperty) await PropertyStats.create({ propertyId: newProperty.id }, { transaction });
         return newProperty;
     }
 
@@ -31,7 +33,7 @@ export default class PropertyService {
         transaction ? await property.destroy({ transaction }) : await property.destroy();
     }
 
-    static async viewProperty(id: string): Promise<Property> {
+    static async viewProperty(id: string, isUserRequest: boolean = false): Promise<Property> {
         const include: Includeable[] = [
             {
                 model: User,
@@ -48,6 +50,12 @@ export default class PropertyService {
 
         if (!property) {
             throw new NotFoundError('Property not found');
+        }
+
+        if (isUserRequest) {
+            await updatePropertyVisitCount(id);
+            // Refresh the property to get the updated stats
+            await property.reload();
         }
 
         return property;
@@ -68,7 +76,7 @@ export default class PropertyService {
 
         if (query !== undefined && query !== '') {
             where = {
-                [Op.or] : [
+                [Op.or]: [
                     { name: { [Op.iLike]: `%${query}%` } },
                     { description: { [Op.iLike]: `%${query}%` } },
                 ],
@@ -99,6 +107,11 @@ export default class PropertyService {
                     as: 'owner',
                     attributes: ['id', 'name', 'email'],
                 },
+                {
+                    model: PropertyStats,
+                    as: 'stats',
+                    attributes: ['overallRating', 'numberOfInvestors', 'ratingCount', 'visitCount'],
+                },
             ],
         });
 
@@ -109,7 +122,7 @@ export default class PropertyService {
     }
 
     static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
-        const { category, name, description, location, price, gallery, stats, shares, contractAddress, ownerId } = data;
+        const { category, name, description, location, price, gallery, shares, contractAddress, ownerId } = data;
 
         const missingFields = [];
 
@@ -119,7 +132,6 @@ export default class PropertyService {
         if (!location) missingFields.push('location');
         if (!price) missingFields.push('price');
         if (!gallery || gallery.length === 0) missingFields.push('gallery');
-        if (!stats) missingFields.push('stats');
         if (!shares) missingFields.push('shares');
         if (!contractAddress) missingFields.push('contractAddress');
         if (!ownerId) missingFields.push('ownerId');
