@@ -32,7 +32,9 @@ export default class PropertyController {
             throw new BadRequestError('Property ID is required');
         }
 
-        const property = await PropertyService.viewProperty(id);
+        const isUserRequest = !!(req as AuthenticatedRequest).user; 
+
+        const property = await PropertyService.viewProperty(id, isUserRequest);
         res.status(200).json({
             status: 'success',
             message: 'Property retrieved successfully',
