@@ -3,7 +3,8 @@ import { JWT_SECRET, JWT_ACCESS_SECRET, JWT_ADMIN_ACCESS_SECRET, JWT_REFRESH_SEC
 import { v4 as uuidv4 } from 'uuid';
 import { redisClient } from './redis';
 import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './customErrors';
-import { AWSKeyData, AuthToken, CompareTokenData, CompareAdminTokenData, DecodedTokenData, DeleteToken, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
+import { CompareTokenData, CompareAdminTokenData, DecodedTokenData, DeleteToken, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
+import { ethers } from 'ethers';
 
 class TokenCacheUtil {
     static saveTokenToCache({ key, token, expiry }: SaveTokenToCache) {
@@ -73,34 +74,7 @@ class TokenCacheUtil {
 
 class AuthUtil {
 
-    static getKeyForAWSUploadType({ id, fileName, type }: AWSKeyData): { key: string, tokenKey: string, expiry: number } {
-        switch (type) {
-        case 'profile':
-            return {
-                key: `Profile/${id}_${fileName}`,
-                tokenKey: `Profile_uploads:${id}:${fileName}`,
-                expiry: 60 * 5, // 5min
-            };
-        case 'posts':
-            return {
-                key: `Posts/${id}_${fileName}`,
-                tokenKey: `Posts_uploads:${id}:${fileName}`,
-                expiry: 60 * 10, // 10min
-            }; 
-        case 'document':
-            return {
-                key: `Docs/${id}_${fileName}`,
-                tokenKey: `Docs_uploads:${id}:${fileName}`,
-                expiry: 60 * 15, // 15min
-            };
-        default:
-            return {
-                key: `Other/${id}_${fileName}`,
-                tokenKey: `Other_uploads:${id}:${fileName}`,
-                expiry: 60 * 10, // 10min
-            };
-        }
-    }
+
     static getSecretKeyForTokenType(type: ENCRYPTEDTOKEN): { secretKey: string, expiry: number } {
         switch (type) {
         case 'access':
@@ -120,19 +94,25 @@ class AuthUtil {
 
     static async generateToken(info: GenerateTokenData) {
         const { type, user } = info;
-        const { secretKey, expiry } = this.getSecretKeyForTokenType(type);
+
+        const { expiry } = this.getSecretKeyForTokenType(type);
 
         const tokenData: Omit<DecodedTokenData, 'token'> = {
             user: {
                 id: user.id,
+                walletAddress: user.walletAddress,
             },
             tokenType: type,
         };
         const tokenKey = `${type}_token:${user.id}`;
-        const token = jwt.sign(tokenData, secretKey, { expiresIn: expiry });
+        const token = jwt.sign(tokenData, user.walletAddress, { expiresIn: expiry });
         await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
 
         return token;
+    }
+
+    static async decodeToken(token: string) {
+        return jwt.decode(token) as DecodedTokenData;
     }
 
     static async generateAdminToken(info: GenerateAdminTokenData) {
@@ -180,11 +160,9 @@ class AuthUtil {
         return TokenCacheUtil.compareToken(tokenKey, token);
     }
 
-    static verifyToken(token: string, type: AuthToken) {
+    static verifyToken(token: string, walletAddress: string) {
         try {
-            const { secretKey } = this.getSecretKeyForTokenType(type);
-            return jwt.verify(token, secretKey);
-
+            return jwt.verify(token, walletAddress);
         } catch (error) {
             if (error instanceof jwt.TokenExpiredError) {
                 throw new TokenExpiredError('Token expired');
@@ -195,6 +173,17 @@ class AuthUtil {
             } else {
                 throw error;
             }
+        }
+    }
+
+    static verifyWalletSignature(walletAddress: string, signature: string): boolean {
+        try {
+            const message = `Sign this message to verify your wallet: ${walletAddress}`;
+            const signerAddress = ethers.verifyMessage(message, signature);
+            return signerAddress.toLowerCase() === walletAddress.toLowerCase();
+        } catch (error) {
+            console.error('Error verifying wallet signature:', error);
+            return false;
         }
     }
 
