@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID, PrimaryKey, Default } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID, PrimaryKey, Default, AfterCreate, AfterDestroy } from 'sequelize-typescript';
 import User from './user.model';
 import Property from './property.model';
+import { updatePropertyInvestorCount } from './propertyStats.model';
 
 export enum InvestmentStatus {
     Presale = 'presale',
@@ -48,6 +49,17 @@ export default class Investment extends Model<Investment | IInvestment> {
 
     @BelongsTo(() => User)
         investor: User;
+
+    @AfterCreate
+    static async IncrementInvestorCount(instance: Investment) {
+        await updatePropertyInvestorCount(instance.investorId, true);
+    }
+
+    @AfterDestroy
+    static async DecrementInvestorCount(instance: Investment) {
+        await updatePropertyInvestorCount(instance.investorId, false);
+    }
+
 }
 
 export interface IInvestment {
