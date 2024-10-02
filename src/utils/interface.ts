@@ -44,7 +44,7 @@ export interface DeleteToken {
     user: IUser & { id: string },
 }
 
-export type DecodedUser = { id: string };
+export type DecodedUser = { id: string, walletAddress: string };
 
 export interface DecodedTokenData {
     user: DecodedUser,
