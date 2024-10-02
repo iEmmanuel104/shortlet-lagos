@@ -1,36 +1,27 @@
-// import express, { Router } from 'express';
-// import AuthController from '../controllers/auth.controller';
-// import { basicAuth, AuthenticatedController } from '../middlewares/authMiddleware';
-// // import { rateLimiter } from '../middlewares/rateLimiter';
-// // import passport from 'passport';
+import express, { Router } from 'express';
+import AuthController from '../controllers/auth.controller';
+import { basicAuth, AuthenticatedController } from '../middlewares/authMiddleware';
 
-// const router: Router = express.Router();
+const router: Router = express.Router();
 
-// router
-//     .post('/signup', AuthController.signup)
-//     .post('/verifyemail', AuthController.verifyEmail)
-//     .get('/resendverifyemail', AuthController.resendVerificationEmail)
-//     .post('/forgotpassword', AuthController.forgotPassword)
-//     .post('/login', AuthController.login)
-//     .post('/resetpassword', AuthController.resetPassword)
+router
+    // Signup route
+    .post('/signup', AuthController.signup)
 
-//     // .post('/setpassword', basicAuth('setpassword'), AuthenticatedController(AuthController.setPassword))
-//     .post('/changepassword', basicAuth('access'), AuthenticatedController(AuthController.changePassword))
-//     .get('/logout', basicAuth('access'), AuthenticatedController(AuthController.logout))
-//     .get('/loggeduser', basicAuth('access'), AuthenticatedController(AuthController.getLoggedUserData))
-//     .get('/authtoken', basicAuth('refresh'));
+    // Wallet verification route
+    .post('/verifywallet', AuthController.verifyWallet)
 
-// // Google authentication route
-// // router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-// // router.get(
-// //     '/google/callback',
-// //     passport.authenticate('google', {
-// //         failureRedirect: '/register',
-// //         session: false,
-// //     }),
-// //     AuthController.googleSignIn,
-// // );
+    // Login route
+    .post('/login', AuthController.login)
+
+    // Logout route
+    .get('/logout', basicAuth(), AuthenticatedController(AuthController.logout))
+
+    // Get logged user data route
+    .get('/loggeduser', basicAuth(), AuthenticatedController(AuthController.getLoggedUserData))
+
+    // Refresh token route
+    .get('/refreshtoken', basicAuth());
 
 
-// export default router;
-
+export default router;
