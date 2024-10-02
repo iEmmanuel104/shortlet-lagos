@@ -15,13 +15,13 @@ export default class PropertyStats extends Model<PropertyStats | IPropertyStats>
         overallRating: number;
 
     @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-        numberOfPaidStudents: number;
+        numberOfInvestors: number;
 
     @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
         ratingCount: number;
-
+    
     @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
-        numberOfModules: number;
+        visitCount: number;
 }
 
 export async function updatePropertyStatsRating(propertyId: string, newRating: number, isNew: boolean, oldRating?: number) {
@@ -48,42 +48,39 @@ export async function updatePropertyStatsRating(propertyId: string, newRating: n
             propertyId,
             overallRating: newRating,
             ratingCount: 1,
-            numberOfPaidStudents: 0,
-            numberOfModules: 0,
+            numberOfInvestors: 0,
         });
     }
 }
 
-export async function updatePropertyStatsPaidStudents(propertyId: string, increment: boolean) {
+export async function updatePropertyInvestorCount(propertyId: string, increment: boolean) {
     const propertyStats = await PropertyStats.findOne({ where: { propertyId } });
     if (propertyStats) {
-        propertyStats.numberOfPaidStudents += increment ? 1 : -1;
-        propertyStats.numberOfPaidStudents = Math.max(propertyStats.numberOfPaidStudents, 0);
+        propertyStats.numberOfInvestors += increment ? 1 : -1;
+        propertyStats.numberOfInvestors = Math.max(propertyStats.numberOfInvestors, 0);
         await propertyStats.save();
     } else {
         await PropertyStats.create({
             propertyId,
             overallRating: 0,
             ratingCount: 0,
-            numberOfPaidStudents: increment ? 1 : 0,
-            numberOfModules: 0,
+            numberOfInvestors: increment ? 1 : 0,
         });
     }
 }
 
-export async function updatePropertyStatsModules(propertyId: string, increment: boolean) {
+export async function updatePropertyVisitCount(propertyId: string) {
     const propertyStats = await PropertyStats.findOne({ where: { propertyId } });
     if (propertyStats) {
-        propertyStats.numberOfModules += increment ? 1 : -1;
-        propertyStats.numberOfModules = Math.max(propertyStats.numberOfModules, 0);
+        propertyStats.visitCount += 1;
         await propertyStats.save();
     } else {
         await PropertyStats.create({
             propertyId,
             overallRating: 0,
             ratingCount: 0,
-            numberOfPaidStudents: 0,
-            numberOfModules: increment ? 1 : 0,
+            numberOfInvestors: 0,
+            visitCount: 1,
         });
     }
 }
@@ -91,7 +88,6 @@ export async function updatePropertyStatsModules(propertyId: string, increment: 
 export interface IPropertyStats {
     propertyId: string;
     overallRating?: number;
-    numberOfPaidStudents?: number;
+    numberOfInvestors?: number;
     ratingCount?: number;
-    numberOfModules?: number;
 }
