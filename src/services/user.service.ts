@@ -52,51 +52,61 @@ export interface IViewReferralsQuery {
 
 export default class UserService {
 
-    static async isEmailAndUsernameAvailable(email: string, username?: string): Promise<boolean> {
-        const validEmail = Validator.isValidEmail(email);
-        if (!validEmail) throw new BadRequestError('Invalid email');
-
-        let whereCondition;
-
-        // Construct where condition based on the presence of username
-        if (username) {
-            whereCondition = {
-                [Op.or]: [
-                    { email: email },
-                ],
-            };
-        } else {
-            whereCondition = { email: email };
+    static async isWalletAddressEmailAndUserNameAvailable(walletAddress: string, email: string, username: string): Promise<boolean> {
+        // Validate email
+        if (!Validator.isValidEmail(email)) {
+            throw new BadRequestError('Invalid email');
         }
 
-        // Find a user with the constructed where condition
-        const existingUser: User | null = await User.findOne({
+        // Construct where condition
+        const whereCondition = {
+            [Op.or]: [
+                { email: email },
+                { walletAddress: walletAddress },
+                { username: username },
+            ],
+        };
+
+        // Find existing users with the given email, wallet address, or username
+        const existingUsers = await User.findAll({
             where: whereCondition,
-            attributes: ['email'],
+            attributes: ['email', 'walletAddress', 'username'],
         });
 
-        // Check if any user was found
-        if (existingUser) {
-            if (existingUser.email === email) {
-                throw new BadRequestError('Email already in use');
+        // Check for conflicts and collect them
+        const conflicts: string[] = [];
+        for (const user of existingUsers) {
+            if (user.email === email) {
+                conflicts.push('email');
             }
+            if (user.walletAddress === walletAddress) {
+                conflicts.push('wallet address');
+            }
+            if (user.username === username) {
+                conflicts.push('username');
+            }
+        }
+
+        // If conflicts found, throw a single error with all conflicts
+        if (conflicts.length > 0) {
+            const conflictList = conflicts.join(', ');
+            throw new BadRequestError(`${conflictList} provided ${conflicts.length > 1 ? 'are' : 'is'} already in use`);
         }
 
         return true;
     }
 
-    static async isEmailExisting(email: string): Promise<User | null> {
-        const validEmail = Validator.isValidEmail(email);
-        if (!validEmail) throw new BadRequestError('Invalid email');
-
-        // Find a user with the constructed where condition
+    static async isWalletAddressAvailable(walletAddress: string): Promise<boolean> {
         const existingUser: User | null = await User.findOne({
-            where: { email },
-            attributes: ['email', 'id'],
+            where: { walletAddress },
+            attributes: ['walletAddress'],
         });
 
-        return existingUser;
+        if (existingUser) {
+            throw new BadRequestError('Wallet address already in use');
+        }
 
+        return true;
     }
 
     static async addUser(userData: IUser): Promise<User> {
@@ -168,6 +178,19 @@ export default class UserService {
 
     static async viewSingleUser(id: string): Promise<User> {
         const user: User | null = await User.scope('withSettings').findByPk(id);
+
+        if (!user) {
+            throw new NotFoundError('Oops User not found');
+        }
+
+        return user;
+    }
+
+    static async viewSingleUserByWalletAddress(walletAddress: string, transaction?: Transaction): Promise<User> {
+        const user: User | null = await User.scope('withSettings').findOne({
+            where: { walletAddress },
+            transaction,
+        });
 
         if (!user) {
             throw new NotFoundError('Oops User not found');
