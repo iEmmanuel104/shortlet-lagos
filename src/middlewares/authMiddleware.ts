@@ -4,7 +4,8 @@ import { UnauthorizedError, NotFoundError, ForbiddenError } from '../utils/custo
 import User from '../models/user.model';
 import UserService from '../services/user.service';
 import { logger } from '../utils/logger';
-import { AuthUtil, TokenCacheUtil } from '../utils/token';
+import { AuthUtil } from '../utils/token';
+// import { AuthUtil, TokenCacheUtil } from '../utils/token';
 import Admin from '../models/admin.model';
 import { ADMIN_EMAIL } from '../utils/constants';
 import AdminService from '../services/AdminServices/admin.service';
@@ -75,12 +76,12 @@ export const basicAuth = function () {
 
             AuthUtil.verifyToken(jwtToken, user.walletAddress);
 
-            const key = `${payload.tokenType}_token:${user.id}`;
-            const cachedToken = await TokenCacheUtil.getTokenFromCache(key);
+            // const key = `${payload.tokenType}_token:${user.id}`;
+            // const cachedToken = await TokenCacheUtil.getTokenFromCache(key);
 
-            if (cachedToken !== jwtToken) {
-                throw new UnauthorizedError('Invalid token');
-            }
+            // if (cachedToken !== jwtToken) {
+            //     throw new UnauthorizedError('Invalid token');
+            // }
 
             if (user.settings.isBlocked) {
                 throw new ForbiddenError('Account blocked. Please contact support');
@@ -116,12 +117,12 @@ export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
             return next(new UnauthorizedError('You are not authorized to perform this action'));
         }
 
-        const key = `${tokenType}_token:${tokenData.authKey}`;
-        const token = await TokenCacheUtil.getTokenFromCache(key);
+        // const key = `${tokenType}_token:${tokenData.authKey}`;
+        // const token = await TokenCacheUtil.getTokenFromCache(key);
 
-        if (token !== jwtToken) {
-            return next(new UnauthorizedError('You are not authorized to perform this action'));
-        }
+        // if (token !== jwtToken) {
+        //     return next(new UnauthorizedError('You are not authorized to perform this action'));
+        // }
 
         let emailToUse = (tokenData.authKey as string).toLowerCase().trim();
         if ((tokenData.authKey as string) !== ADMIN_EMAIL) {
