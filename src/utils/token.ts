@@ -3,7 +3,7 @@ import { JWT_SECRET, JWT_ACCESS_SECRET, JWT_ADMIN_ACCESS_SECRET, JWT_REFRESH_SEC
 import { v4 as uuidv4 } from 'uuid';
 import { redisClient } from './redis';
 import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './customErrors';
-import { CompareTokenData, CompareAdminTokenData, DecodedTokenData, DeleteToken, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
+import { CompareTokenData, DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
 import { ethers } from 'ethers';
 
 class TokenCacheUtil {
@@ -103,9 +103,9 @@ class AuthUtil {
             },
             tokenType: type,
         };
-        const tokenKey = `${type}_token:${user.id}`;
+        // const tokenKey = `${type}_token:${user.id}`;
         const token = jwt.sign(tokenData, user.walletAddress, { expiresIn: expiry });
-        await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
+        // await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
 
         return token;
     }
@@ -123,15 +123,15 @@ class AuthUtil {
             authKey: identifier,
             tokenType: type,
         };
-        const tokenKey = `${type}_token:${identifier}`;
+        // const tokenKey = `${type}_token:${identifier}`;
         const token = jwt.sign(tokenData, secretKey, { expiresIn: expiry });
-        await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
+        // await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
 
         return token;
     }
 
     static async generateCode({ type, identifier, expiry }: GenerateCodeData) {
-        const tokenKey = `${type}_code:${identifier}`;
+        // const tokenKey = `${type}_code:${identifier}`;
         let token:number | string;
         if (type === 'passwordreset') {
             token = uuidv4();
@@ -139,7 +139,9 @@ class AuthUtil {
             token = Math.floor(100000 + Math.random() * 900000).toString();
         }
 
-        await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
+        console.log({ expiry, identifier });
+
+        // await TokenCacheUtil.saveTokenToCache({ key: tokenKey, token, expiry });
 
         return token;
     }
@@ -149,15 +151,15 @@ class AuthUtil {
         return TokenCacheUtil.compareToken(tokenKey, token);
     }
 
-    static compareCode({ user, tokenType, token }: CompareTokenData) {
-        const tokenKey = `${tokenType}_code:${user.id}`;
-        return TokenCacheUtil.compareToken(tokenKey, token);
-    }
+    // static compareCode({ user, tokenType, token }: CompareTokenData) {
+    //     const tokenKey = `${tokenType}_code:${user.id}`;
+    //     return TokenCacheUtil.compareToken(tokenKey, token);
+    // }
 
-    static compareAdminCode({ identifier, tokenType, token }: CompareAdminTokenData) {
-        const tokenKey = `${tokenType}_code:${identifier}`;
-        return TokenCacheUtil.compareToken(tokenKey, token);
-    }
+    // static compareAdminCode({ identifier, tokenType, token }: CompareAdminTokenData) {
+    //     const tokenKey = `${tokenType}_code:${identifier}`;
+    //     return TokenCacheUtil.compareToken(tokenKey, token);
+    // }
 
     static verifyToken(token: string, walletAddress: string) {
         try {
@@ -204,10 +206,10 @@ class AuthUtil {
         }
     }
 
-    static async deleteToken({ user, tokenType, tokenClass }: DeleteToken) {
-        const tokenKey = `${tokenType}_${tokenClass}:${user.id}`;
-        await TokenCacheUtil.deleteTokenFromCache(tokenKey);
-    }
+    // static async deleteToken({ user, tokenType, tokenClass }: DeleteToken) {
+    //     const tokenKey = `${tokenType}_${tokenClass}:${user.id}`;
+    //     await TokenCacheUtil.deleteTokenFromCache(tokenKey);
+    // }
 
 }
 
