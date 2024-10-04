@@ -133,8 +133,8 @@ export default class AuthController {
     }
 
     static async logout(req: AuthenticatedRequest, res: Response) {
-        await AuthUtil.deleteToken({ user: req.user, tokenType: 'access', tokenClass: 'token' });
-        await AuthUtil.deleteToken({ user: req.user, tokenType: 'refresh', tokenClass: 'token' });
+        // await AuthUtil.deleteToken({ user: req.user, tokenType: 'access', tokenClass: 'token' });
+        // await AuthUtil.deleteToken({ user: req.user, tokenType: 'refresh', tokenClass: 'token' });
 
         res.status(200).json({
             status: 'success',
