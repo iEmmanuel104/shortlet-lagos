@@ -85,30 +85,6 @@ export default class WithdrawalRequestController {
         });
     }
 
-    static async getWithdrawalRequestsByUser(req: Request, res: Response) {
-        const { userId } = req.params;
-        const { page, size, status, minAmount, maxAmount } = req.query;
-
-        if (!userId) {
-            throw new BadRequestError('User ID is required');
-        }
-
-        const queryParams: IViewWithdrawalRequestsQuery = {
-            ...(page && size ? { page: Number(page), size: Number(size) } : {}),
-            userId,
-            ...(status && { status: status as WithdrawalStatus }),
-            ...(minAmount && { minAmount: Number(minAmount) }),
-            ...(maxAmount && { maxAmount: Number(maxAmount) }),
-        };
-
-        const requests = await WithdrawalRequestService.viewWithdrawalRequests(queryParams);
-        res.status(200).json({
-            status: 'success',
-            message: 'Withdrawal requests for user retrieved successfully',
-            data: { ...requests },
-        });
-    }
-
     static async approveWithdrawalRequest(req: AuthenticatedRequest, res: Response) {
         const { id } = req.params;
 
