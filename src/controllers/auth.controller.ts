@@ -6,11 +6,17 @@ import { AuthUtil } from '../utils/token';
 import { emailService, EmailTemplate } from '../utils/Email';
 import UserService from '../services/user.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
+import { UserType } from '../models/user.model';
 
 export default class AuthController {
 
     static async signup(req: Request, res: Response) {
         const { walletAddress, email, firstName, lastName, username, password, type } = req.body;
+
+        // check if the type atches any in the enum
+        if (!Object.values(UserType).includes(type)) {
+            throw new BadRequestError(`Invalid user type. Must be one of ${Object.values(UserType).join(', ')}`);
+        }
 
         await UserService.isWalletAddressEmailAndUserNameAvailable(walletAddress, email, username);
 
