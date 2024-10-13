@@ -11,7 +11,7 @@ const upload = uploadMiddleware(UploadType.Single, 'file');
 router
 //     .get('/', adminAuth('admin'), AuthenticatedController(UserController.getAllUsers))
     // .get('/info', adminAuth('admin'), AuthenticatedController(UserController.getUser))
-    .patch('/update', basicAuth('access'), upload, AuthenticatedController(UserController.updateUser));
+    .patch('/update', basicAuth(), upload, AuthenticatedController(UserController.updateUser));
     
 export default router;
 
