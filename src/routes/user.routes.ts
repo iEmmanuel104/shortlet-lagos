@@ -9,8 +9,8 @@ const router: Router = express.Router();
 const upload = uploadMiddleware(UploadType.Single, 'file');
 
 router
-//     .get('/', adminAuth('admin'), AuthenticatedController(UserController.getAllUsers))
-    // .get('/info', adminAuth('admin'), AuthenticatedController(UserController.getUser))
+    .get('/', basicAuth(), AuthenticatedController(UserController.getAllUsers))
+    .get('/info', basicAuth(), AuthenticatedController(UserController.getUser))
     .patch('/update', basicAuth(), upload, AuthenticatedController(UserController.updateUser));
     
 export default router;
