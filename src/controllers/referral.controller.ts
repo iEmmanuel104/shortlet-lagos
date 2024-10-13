@@ -83,20 +83,4 @@ export default class ReferralController {
             data: null,
         });
     }
-
-    static async getUserReferrals(req: AuthenticatedRequest, res: Response) {
-        const userId = req.user.id;
-        const { role } = req.query;
-
-        if (!role || (role !== 'referee' && role !== 'referred')) {
-            throw new BadRequestError('Valid role (referee or referred) is required');
-        }
-
-        const referrals = await ReferralService.getUserReferrals(userId, role);
-        res.status(200).json({
-            status: 'success',
-            message: `User's ${role} referrals retrieved successfully`,
-            data: referrals,
-        });
-    }
 }
