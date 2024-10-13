@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import WithdrawalRequestService, { IViewWithdrawalRequestsQuery } from '../services/user.service';
+import WithdrawalRequestService, { IViewWithdrawalRequestsQuery } from '../services/withdrawalRequest.service';
 import { BadRequestError } from '../utils/customErrors';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { IWithdrawalRequest, WithdrawalStatus } from '../models/withdrawalRequest.model';
