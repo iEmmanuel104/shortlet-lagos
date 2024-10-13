@@ -85,46 +85,4 @@ export default class InvestmentController {
             data: null,
         });
     }
-
-    static async getInvestmentsByProperty(req: Request, res: Response) {
-        const { propertyId } = req.params;
-        const { page, size } = req.query;
-
-        if (!propertyId) {
-            throw new BadRequestError('Property ID is required');
-        }
-
-        const queryParams: IViewInvestmentsQuery = {
-            ...(page && size ? { page: Number(page), size: Number(size) } : {}),
-            propertyId,
-        };
-
-        const investments = await InvestmentService.viewInvestments(queryParams);
-        res.status(200).json({
-            status: 'success',
-            message: 'Investments for property retrieved successfully',
-            data: { ...investments },
-        });
-    }
-
-    static async getInvestmentsByInvestor(req: Request, res: Response) {
-        const { investorId } = req.params;
-        const { page, size } = req.query;
-
-        if (!investorId) {
-            throw new BadRequestError('Investor ID is required');
-        }
-
-        const queryParams: IViewInvestmentsQuery = {
-            ...(page && size ? { page: Number(page), size: Number(size) } : {}),
-            investorId,
-        };
-
-        const investments = await InvestmentService.viewInvestments(queryParams);
-        res.status(200).json({
-            status: 'success',
-            message: 'Investments for investor retrieved successfully',
-            data: { ...investments },
-        });
-    }
 }
