@@ -5,10 +5,7 @@ import Validator from '../utils/validators';
 import Pagination, { IPaging } from '../utils/pagination';
 import { Sequelize } from '../models';
 import UserSettings, { IUserSettings } from '../models/userSettings.model';
-import VerificationDoc, { DocType, IVerificationDoc, VerificationStatus } from '../models/verificationDocs.model';
 import WithdrawalRequest, { IWithdrawalRequest, WithdrawalStatus } from '../models/withdrawalRequest.model';
-import Referral, { IReferral, ReferralStatus } from '../models/referral.model';
-
 
 export interface IViewUsersQuery {
     page?: number;
@@ -23,15 +20,6 @@ export interface IDynamicQueryOptions {
     includes?: 'profile' | 'all';
     attributes?: string[];
 }
-
-export interface IViewVerificationDocsQuery {
-    page?: number;
-    size?: number;
-    userId?: string;
-    type?: DocType;
-    status?: VerificationStatus;
-}
-
 export interface IViewWithdrawalRequestsQuery {
     page?: number;
     size?: number;
@@ -40,15 +28,6 @@ export interface IViewWithdrawalRequestsQuery {
     minAmount?: number;
     maxAmount?: number;
 }
-
-export interface IViewReferralsQuery {
-    page?: number;
-    size?: number;
-    refereeId?: string;
-    referredId?: string;
-    status?: ReferralStatus;
-}
-
 
 export default class UserService {
 
@@ -251,109 +230,6 @@ export default class UserService {
         transaction ? await user.destroy({ transaction }) : await user.destroy();
     }
 
-
-
-    static async addVerificationDoc(docData: IVerificationDoc, transaction?: Transaction): Promise<VerificationDoc> {
-        const newDoc = await VerificationDoc.create({ ...docData }, { transaction });
-        return newDoc;
-    }
-
-    static async updateVerificationDoc(doc: VerificationDoc, dataToUpdate: Partial<IVerificationDoc>): Promise<VerificationDoc> {
-        await doc.update(dataToUpdate);
-        const updatedDoc = await this.viewVerificationDoc(doc.id);
-        return updatedDoc;
-    }
-
-    static async deleteVerificationDoc(doc: VerificationDoc, transaction?: Transaction): Promise<void> {
-        transaction ? await doc.destroy({ transaction }) : await doc.destroy();
-    }
-
-    static async viewVerificationDoc(id: string): Promise<VerificationDoc> {
-        const include: Includeable[] = [
-            {
-                model: User,
-                attributes: ['id', 'name', 'email'],
-            },
-        ];
-
-        const doc: VerificationDoc | null = await VerificationDoc.findByPk(id, { include });
-
-        if (!doc) {
-            throw new NotFoundError('Verification document not found');
-        }
-
-        return doc;
-    }
-
-    static async viewVerificationDocs(queryData?: IViewVerificationDocsQuery): Promise<{ docs: VerificationDoc[], count?: number, totalPages?: number }> {
-        let conditions: Record<string, unknown> = {};
-        let paginate = false;
-        const { page, size, userId, type, status } = queryData as IViewVerificationDocsQuery;
-
-        if (page && size && page > 0 && size > 0) {
-            const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
-            conditions = { limit, offset };
-            paginate = true;
-        }
-
-        const where: WhereOptions = {};
-
-        if (userId) {
-            where.userId = userId;
-        }
-
-        if (type) {
-            where.type = type;
-        }
-
-        if (status) {
-            where.status = status;
-        }
-
-        const { rows: docs, count }: { rows: VerificationDoc[], count: number } = await VerificationDoc.findAndCountAll({
-            ...conditions,
-            where,
-            order: [['createdAt', 'DESC']],
-            include: [
-                {
-                    model: User,
-                    attributes: ['id', 'name', 'email'],
-                },
-            ],
-        });
-
-        if (paginate && docs.length > 0) {
-            const totalPages = Pagination.estimateTotalPage({ count, limit: size } as IPaging);
-            return { docs, count, ...totalPages };
-        } else return { docs };
-    }
-
-    static async validateVerificationDocData(data: Partial<IVerificationDoc>): Promise<Partial<IVerificationDoc>> {
-        const { userId, type, status, url } = data;
-
-        const missingFields = [];
-
-        if (!userId) missingFields.push('userId');
-        if (!type) missingFields.push('type');
-        if (!status) missingFields.push('status');
-        if (!url) missingFields.push('url');
-
-        if (missingFields.length > 0) {
-            throw new BadRequestError(`Missing or invalid fields: ${missingFields.join(', ')}`);
-        }
-
-        if (!Object.values(DocType).includes(type as DocType)) {
-            throw new BadRequestError('Invalid document type');
-        }
-
-        if (!Object.values(VerificationStatus).includes(status as VerificationStatus)) {
-            throw new BadRequestError('Invalid verification status');
-        }
-
-        return data;
-    }
-
-
     
     static async addWithdrawalRequest(requestData: IWithdrawalRequest, transaction?: Transaction): Promise<WithdrawalRequest> {
         const newRequest = await WithdrawalRequest.create({ ...requestData }, { transaction });
@@ -456,140 +332,5 @@ export default class UserService {
         }
 
         return data;
-    }
-
-
-    static async createReferral(referralData: IReferral, transaction?: Transaction): Promise<Referral> {
-        const newReferral = await Referral.create({ ...referralData }, { transaction });
-        return newReferral;
-    }
-
-    static async updateReferral(referral: Referral, dataToUpdate: Partial<IReferral>): Promise<Referral> {
-        await referral.update(dataToUpdate);
-        const updatedReferral = await this.viewReferral(referral.id);
-        return updatedReferral;
-    }
-
-    static async deleteReferral(referral: Referral, transaction?: Transaction): Promise<void> {
-        transaction ? await referral.destroy({ transaction }) : await referral.destroy();
-    }
-
-    static async viewReferral(id: string): Promise<Referral> {
-        const include: Includeable[] = [
-            {
-                model: User,
-                as: 'referee',
-                attributes: ['id', 'name', 'email'],
-            },
-            {
-                model: User,
-                as: 'referred',
-                attributes: ['id', 'name', 'email'],
-            },
-        ];
-
-        const referral: Referral | null = await Referral.findByPk(id, { include });
-
-        if (!referral) {
-            throw new NotFoundError('Referral not found');
-        }
-
-        return referral;
-    }
-
-    static async viewReferrals(queryData?: IViewReferralsQuery): Promise<{ referrals: Referral[], count?: number, totalPages?: number }> {
-        let conditions: Record<string, unknown> = {};
-        let paginate = false;
-        const { page, size, refereeId, referredId, status } = queryData as IViewReferralsQuery;
-
-        if (page && size && page > 0 && size > 0) {
-            const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
-            conditions = { limit, offset };
-            paginate = true;
-        }
-
-        const where: WhereOptions = {};
-
-        if (refereeId) {
-            where.refereeId = refereeId;
-        }
-
-        if (referredId) {
-            where.referredId = referredId;
-        }
-
-        if (status) {
-            where.status = status;
-        }
-
-        const { rows: referrals, count }: { rows: Referral[], count: number } = await Referral.findAndCountAll({
-            ...conditions,
-            where,
-            order: [['createdAt', 'DESC']],
-            include: [
-                {
-                    model: User,
-                    as: 'referee',
-                    attributes: ['id', 'name', 'email'],
-                },
-                {
-                    model: User,
-                    as: 'referred',
-                    attributes: ['id', 'name', 'email'],
-                },
-            ],
-        });
-
-        if (paginate && referrals.length > 0) {
-            const totalPages = Pagination.estimateTotalPage({ count, limit: size } as IPaging);
-            return { referrals, count, ...totalPages };
-        } else return { referrals };
-    }
-
-    static async validateReferralData(data: Partial<IReferral>): Promise<Partial<IReferral>> {
-        const { refereeId, referredId, status } = data;
-
-        const missingFields = [];
-
-        if (!refereeId) missingFields.push('refereeId');
-        if (!referredId) missingFields.push('referredId');
-
-        if (missingFields.length > 0) {
-            throw new BadRequestError(`Missing or invalid fields: ${missingFields.join(', ')}`);
-        }
-
-        if (refereeId === referredId) {
-            throw new BadRequestError('A user cannot refer themselves');
-        }
-
-        if (status && !Object.values(ReferralStatus).includes(status)) {
-            throw new BadRequestError('Invalid referral status');
-        }
-
-        return data;
-    }
-
-    static async getUserReferrals(userId: string, role: 'referee' | 'referred'): Promise<Referral[]> {
-        const where: WhereOptions = {};
-        where[`${role}Id`] = userId;
-
-        const referrals = await Referral.findAll({
-            where,
-            include: [
-                {
-                    model: User,
-                    as: 'referee',
-                    attributes: ['id', 'name', 'email'],
-                },
-                {
-                    model: User,
-                    as: 'referred',
-                    attributes: ['id', 'name', 'email'],
-                },
-            ],
-            order: [['createdAt', 'DESC']],
-        });
-
-        return referrals;
     }
 }
