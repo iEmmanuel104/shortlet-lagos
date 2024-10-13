@@ -1,76 +1,77 @@
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET, JWT_ACCESS_SECRET, JWT_ADMIN_ACCESS_SECRET, JWT_REFRESH_SECRET } from './constants';
 import { v4 as uuidv4 } from 'uuid';
-import { redisClient } from './redis';
+// import { redisClient } from './redis';
 import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './customErrors';
-import { CompareTokenData, DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
+import { DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, GenerateAdminTokenData } from './interface';
+// import { CompareTokenData, DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
 import { ethers } from 'ethers';
 
-class TokenCacheUtil {
-    static saveTokenToCache({ key, token, expiry }: SaveTokenToCache) {
-        const response = expiry ? redisClient.setex(key, expiry, token) : redisClient.set(key, token);
-        return response;
-    }
+// class TokenCacheUtil {
+//     static saveTokenToCache({ key, token, expiry }: SaveTokenToCache) {
+//         const response = expiry ? redisClient.setex(key, expiry, token) : redisClient.set(key, token);
+//         return response;
+//     }
 
-    static async saveTokenToCacheList({ key, token, expiry }: SaveTokenToCache) {
-        const response = await redisClient.lpush(key, token);
+//     static async saveTokenToCacheList({ key, token, expiry }: SaveTokenToCache) {
+//         const response = await redisClient.lpush(key, token);
 
-        if (expiry) {
-            await redisClient.expire(key, expiry);
-        }
+//         if (expiry) {
+//             await redisClient.expire(key, expiry);
+//         }
 
-        return response;
-    }
+//         return response;
+//     }
 
 
-    static async saveAuthTokenToCache({ key, token, expiry }: SaveTokenToCache) {
-        // Save token and state as an array [token, state] in Redis
-        const state = 'active'; // You can set the initial state as needed
-        const dataToSave = { token, state };
+//     static async saveAuthTokenToCache({ key, token, expiry }: SaveTokenToCache) {
+//         // Save token and state as an array [token, state] in Redis
+//         const state = 'active'; // You can set the initial state as needed
+//         const dataToSave = { token, state };
 
-        const response = expiry
-            ? redisClient.setex(key, expiry, JSON.stringify(dataToSave))
-            : redisClient.set(key, token);
+//         const response = expiry
+//             ? redisClient.setex(key, expiry, JSON.stringify(dataToSave))
+//             : redisClient.set(key, token);
 
-        return response;
-    }
+//         return response;
+//     }
 
-    static async updateTokenState(key: string, newState: string) {
-        // Fetch existing token and state from Redis
-        const dataString = await redisClient.get(key);
-        if (!dataString) {
-            throw new Error('Token not found in Redis');
-        }
+//     static async updateTokenState(key: string, newState: string) {
+//         // Fetch existing token and state from Redis
+//         const dataString = await redisClient.get(key);
+//         if (!dataString) {
+//             throw new Error('Token not found in Redis');
+//         }
 
-        const { token, state } = JSON.parse(dataString);
+//         const { token, state } = JSON.parse(dataString);
 
-        if (state !== 'active') {
-            throw new UnauthorizedError('Unauthorized token');  
-        }
+//         if (state !== 'active') {
+//             throw new UnauthorizedError('Unauthorized token');  
+//         }
 
-        // Save updated state along with the existing token and remaining TTL
-        const existingTTL = await redisClient.ttl(key);
-        const updatedData = { token, state: newState };
+//         // Save updated state along with the existing token and remaining TTL
+//         const existingTTL = await redisClient.ttl(key);
+//         const updatedData = { token, state: newState };
 
-        await redisClient.setex(key, existingTTL, JSON.stringify(updatedData));
-    }
+//         await redisClient.setex(key, existingTTL, JSON.stringify(updatedData));
+//     }
 
-    static async getTokenFromCache(key: string): Promise<string | null> {
-        const tokenString = await redisClient.get(key);
-        if (!tokenString) {
-            return null;
-        }            
-        return tokenString;
-    }
+//     static async getTokenFromCache(key: string): Promise<string | null> {
+//         const tokenString = await redisClient.get(key);
+//         if (!tokenString) {
+//             return null;
+//         }            
+//         return tokenString;
+//     }
 
-    static async compareToken(key: string, token: string) {
-        const _token = await TokenCacheUtil.getTokenFromCache(key);
-        return _token === token;
-    }
-    static async deleteTokenFromCache(key: string) {
-        await redisClient.del(key);
-    }
-}
+//     static async compareToken(key: string, token: string) {
+//         const _token = await TokenCacheUtil.getTokenFromCache(key);
+//         return _token === token;
+//     }
+//     static async deleteTokenFromCache(key: string) {
+//         await redisClient.del(key);
+//     }
+// }
 
 class AuthUtil {
 
@@ -146,10 +147,10 @@ class AuthUtil {
         return token;
     }
 
-    static compareToken({ user, tokenType, token }: CompareTokenData) {
-        const tokenKey = `${tokenType}_token:${user.id}`;
-        return TokenCacheUtil.compareToken(tokenKey, token);
-    }
+    // static compareToken({ user, tokenType, token }: CompareTokenData) {
+    //     const tokenKey = `${tokenType}_token:${user.id}`;
+    //     return TokenCacheUtil.compareToken(tokenKey, token);
+    // }
 
     // static compareCode({ user, tokenType, token }: CompareTokenData) {
     //     const tokenKey = `${tokenType}_code:${user.id}`;
@@ -213,4 +214,5 @@ class AuthUtil {
 
 }
 
-export { AuthUtil, TokenCacheUtil };
+export { AuthUtil };
+// export { AuthUtil, TokenCacheUtil };
