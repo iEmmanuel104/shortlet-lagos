@@ -1,16 +1,22 @@
 import { Router } from 'express';
-import authRoute from './auth.routes';
-import userRoute from './user.routes';
-// import AdminRoutes from './Admin/admin.routes';
-
+import authRoutes from './auth.routes';
+import userRoutes from './user.routes';
+import propertyRoutes from './property.routes';
+import investmentRoutes from './investment.routes';
+import referralRoutes from './referral.routes';
+import reviewRoutes from './review.routes';
+import verificationRoutes from './verification.routes';
+import withdrawalRequestRoutes from './withdrawalRequest.routes';
 
 const router = Router();
 
-router
-    .use('/auth', authRoute)
-    // .use('/iamBase', adminRoute)
-    .use('/user', userRoute);
+router.use('/auth', authRoutes);
+router.use('/user', userRoutes);
+router.use('/property', propertyRoutes);
+router.use('/investment', investmentRoutes);
+router.use('/referral', referralRoutes);
+router.use('/review', reviewRoutes);
+router.use('/verification', verificationRoutes);
+router.use('/withdrawal-request', withdrawalRequestRoutes);
 
 export default router;
-
-
