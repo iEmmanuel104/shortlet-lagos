@@ -23,10 +23,10 @@ router.route('/')
         upload,
         AuthenticatedController(BlogController.updateBlog)
     )
-    .delete(basicAuth('access'), AuthenticatedController(BlogController.deleteBlog));
+    .delete(basicAuth(), AuthenticatedController(BlogController.deleteBlog));
 
 router.get('/info', BlogController.getBlog);    
-router.post('/engage', basicAuth('access'), AuthenticatedController(BlogController.engageWithBlog));
+router.post('/engage', basicAuth(), AuthenticatedController(BlogController.engageWithBlog));
 router.delete('/blog-comment', adminAuth('admin'), AuthenticatedController(BlogController.deleteActivityComment));
 router.get('/activities', BlogController.getBlogActivities);
 
