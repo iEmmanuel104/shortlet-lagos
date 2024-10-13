@@ -1,14 +1,14 @@
 import app from './app';
 import { initiateDB } from './models';
 import { logger } from './utils/logger';
-import { redisClient } from './utils/redis';
+// import { redisClient } from './utils/redis';
 
 // Asynchronous function to start the server
 async function startServer(): Promise<void> {
     try {      
-        await redisClient.on('connect', () => {
-            logger.info('Connection to REDIS database successful');
-        });
+        // await redisClient.on('connect', () => {
+        //     logger.info('Connection to REDIS database successful');
+        // });
         // Initiate a connection to the database
         await initiateDB();
 
@@ -20,13 +20,13 @@ async function startServer(): Promise<void> {
         console.log(err);
         logger.error(err);
         // exit redis client
-        redisClient.quit((err, result) => {
-            if (err) {
-                console.error('Error quitting Redis:', err);
-            } else {
-                console.log('Redis instance has been stopped:', result);
-            }
-        });
+        // redisClient.quit((err, result) => {
+        //     if (err) {
+        //         console.error('Error quitting Redis:', err);
+        //     } else {
+        //         console.log('Redis instance has been stopped:', result);
+        //     }
+        // });
         // Exit the process with a non-zero status code to indicate an error
         process.exit(1);
     }
