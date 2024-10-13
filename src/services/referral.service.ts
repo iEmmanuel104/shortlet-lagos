@@ -123,28 +123,4 @@ export default class ReferralService {
 
         return data;
     }
-
-    static async getUserReferrals(userId: string, role: 'referee' | 'referred'): Promise<Referral[]> {
-        const where: WhereOptions = {};
-        where[`${role}Id`] = userId;
-
-        const referrals = await Referral.findAll({
-            where,
-            include: [
-                {
-                    model: User,
-                    as: 'referee',
-                    attributes: ['id', 'name', 'email'],
-                },
-                {
-                    model: User,
-                    as: 'referred',
-                    attributes: ['id', 'name', 'email'],
-                },
-            ],
-            order: [['createdAt', 'DESC']],
-        });
-
-        return referrals;
-    }
 }
