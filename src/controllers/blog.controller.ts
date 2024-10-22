@@ -84,9 +84,7 @@ export default class BlogController {
         const {
             title,
             content,
-            author,
-
-            
+            author,          
             tags,
             media,
             status,
