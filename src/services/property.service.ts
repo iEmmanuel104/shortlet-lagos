@@ -38,7 +38,7 @@ export default class PropertyService {
             {
                 model: User,
                 as: 'owner',
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
             {
                 model: Investment,
@@ -105,7 +105,7 @@ export default class PropertyService {
                 {
                     model: User,
                     as: 'owner',
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
                 {
                     model: PropertyStats,
@@ -127,7 +127,7 @@ export default class PropertyService {
         const missingFields = [];
 
         if (!category) missingFields.push('category');
-        if (!name) missingFields.push('name');
+        if (!name) missingFields.push('username');
         if (!description) missingFields.push('description');
         if (!location) missingFields.push('location');
         if (!price) missingFields.push('price');
