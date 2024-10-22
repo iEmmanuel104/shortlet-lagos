@@ -1,17 +1,18 @@
 import { Request, Response } from 'express';
 import { BadRequestError, ForbiddenError } from '../utils/customErrors';
-import Validator from '../utils/validators';
-import Password from '../models/password.model';
+// import Validator from '../utils/validators';
+// import Password from '../models/password.model';
 import { AuthUtil } from '../utils/token';
-import { emailService, EmailTemplate } from '../utils/Email';
+// import { emailService, EmailTemplate } from '../utils/Email';
 import UserService from '../services/user.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { UserType } from '../models/user.model';
+import ReferralService from '../services/referral.service';
 
 export default class AuthController {
 
     static async signup(req: Request, res: Response) {
-        const { walletAddress, email, firstName, lastName, username, password, type } = req.body;
+        const { walletAddress, email, username, type, referralName, phone, address } = req.body;
 
         // check if the type atches any in the enum
         if (!Object.values(UserType).includes(type)) {
@@ -23,8 +24,8 @@ export default class AuthController {
         const newUser = await UserService.addUser({
             walletAddress,
             email,
-            firstName,
-            lastName,
+            // firstName,
+            // lastName,
             username,
             status: {
                 activated: false,
@@ -32,39 +33,16 @@ export default class AuthController {
                 walletVerified: false,
             },
             type,
+            phone,
+            address,
         });
 
-
-        const otpCode = await AuthUtil.generateCode({ type: 'emailverification', identifier: newUser.id, expiry: 60 * 10 });
-
-
-        const templateData = {
-            otpCode,
-            name: firstName,
-        };
-
-        console.log('sending email');
-        await emailService.send({
-            email: 'batch',
-            subject: 'Account Activation',
-            from: 'auth',
-            isPostmarkTemplate: true,
-            postMarkTemplateAlias: 'verify-email',
-            postmarkInfo: [{
-                postMarkTemplateData: templateData,
-                receipientEmail: email,
-            }],
-            html: await new EmailTemplate().accountActivation({ otpCode, name: firstName }),
-        });
-
-        const validPassword = Validator.isValidPassword(password);
-
-        if (!validPassword) {
-            throw new BadRequestError('Invalid password format');
+        if (referralName) {
+            const refereeId = await UserService.viewSingleUserByUsername(referralName);
+            if (refereeId) {
+                await ReferralService.createReferral({ refereeId: refereeId.id, referredId: newUser.id });
+            }
         }
-
-        // Create a new password for the user
-        await Password.create({ userId: newUser.id, password: password });
 
         res.status(201).json({
             status: 'success',
