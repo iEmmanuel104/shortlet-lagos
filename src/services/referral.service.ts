@@ -34,12 +34,12 @@ export default class ReferralService {
             {
                 model: User,
                 as: 'referee',
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
             {
                 model: User,
                 as: 'referred',
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
         ];
 
@@ -85,12 +85,12 @@ export default class ReferralService {
                 {
                     model: User,
                     as: 'referee',
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
                 {
                     model: User,
                     as: 'referred',
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
             ],
         });
