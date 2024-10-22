@@ -34,7 +34,7 @@ export default class VerificationService {
         const include: Includeable[] = [
             {
                 model: User,
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
         ];
 
@@ -79,7 +79,7 @@ export default class VerificationService {
             include: [
                 {
                     model: User,
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
             ],
         });
