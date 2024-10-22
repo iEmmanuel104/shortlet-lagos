@@ -4,7 +4,6 @@ import {
     IsEmail, IsUUID, PrimaryKey, Index, BeforeCreate, BeforeUpdate,
     Unique,
 } from 'sequelize-typescript';
-import Password from './password.model';
 import UserSettings from './userSettings.model';
 import { FindOptions } from 'sequelize';
 
@@ -59,7 +58,7 @@ export default class User extends Model<User | IUser> {
     @Index
     @Column({
         type: DataType.STRING,
-        allowNull: false,
+        allowNull: true,
         set(value: string) {
             this.setDataValue('firstName', User.capitalizeFirstLetter(value));
         },
@@ -69,7 +68,7 @@ export default class User extends Model<User | IUser> {
     @Index
     @Column({
         type: DataType.STRING,
-        allowNull: false,
+        allowNull: true,
         set(value: string) {
             this.setDataValue('lastName', User.capitalizeFirstLetter(value));
         },
@@ -165,10 +164,6 @@ export default class User extends Model<User | IUser> {
     @Column({ type: DataType.STRING })
         referralBonus: string;
 
-    // Associations
-    @HasOne(() => Password)
-        password: Password;
-
     @HasOne(() => UserSettings)
         settings: UserSettings;
 
@@ -206,8 +201,8 @@ export default class User extends Model<User | IUser> {
 export interface IUser {
     walletAddress: string;
     email: string;
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
     otherName?: string;
     username: string;
     status: {
