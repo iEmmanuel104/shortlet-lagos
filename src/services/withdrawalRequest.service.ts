@@ -34,7 +34,7 @@ export default class WithdrawalRequestService {
         const include: Includeable[] = [
             {
                 model: User,
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
         ];
 
@@ -81,7 +81,7 @@ export default class WithdrawalRequestService {
             include: [
                 {
                     model: User,
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
             ],
         });
