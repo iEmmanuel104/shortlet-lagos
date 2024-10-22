@@ -43,5 +43,5 @@ export interface IReferral {
     id?: string;
     refereeId: string;
     referredId: string;
-    status: ReferralStatus;
+    status?: ReferralStatus;
 }
