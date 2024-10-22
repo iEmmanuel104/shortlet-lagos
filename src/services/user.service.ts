@@ -5,6 +5,7 @@ import Validator from '../utils/validators';
 import Pagination, { IPaging } from '../utils/pagination';
 import { Sequelize } from '../models';
 import UserSettings, { IUserSettings } from '../models/userSettings.model';
+import HelperUtils from '../utils/helpers';
 
 export interface IViewUsersQuery {
     page?: number;
@@ -86,6 +87,10 @@ export default class UserService {
         await UserSettings.create({
             userId: _transaction.id,
             joinDate: new Date().toISOString().split('T')[0], // yyyy-mm-dd format
+            referralDetails: {
+                referralCode: HelperUtils.generateRandomString(6),
+                referralBonus: 0,
+            },
         } as IUserSettings);
 
         return _transaction;
@@ -179,6 +184,16 @@ export default class UserService {
         if (!user) {
             throw new NotFoundError('Oops User not found');
         }
+
+        return user;
+    }
+
+    static async viewSingleUserByUsername(username: string, transaction?: Transaction): Promise<User | null> {
+        const user: User | null = await User.findOne({
+            where: { username },
+            attributes: ['id'],
+            transaction,
+        });
 
         return user;
     }
