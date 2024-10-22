@@ -35,12 +35,12 @@ export default class InvestmentService {
         const include: Includeable[] = [
             {
                 model: Property,
-                attributes: ['id', 'name', 'category', 'price'],
+                attributes: ['id', 'username', 'category', 'price'],
             },
             {
                 model: User,
                 as: 'investor',
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'username', 'email'],
             },
         ];
 
@@ -91,12 +91,12 @@ export default class InvestmentService {
             include: [
                 {
                     model: Property,
-                    attributes: ['id', 'name', 'category', 'price'],
+                    attributes: ['id', 'username', 'category', 'price'],
                 },
                 {
                     model: User,
                     as: 'investor',
-                    attributes: ['id', 'name', 'email'],
+                    attributes: ['id', 'username', 'email'],
                 },
             ],
         });
