@@ -12,25 +12,25 @@ import ReferralService from '../services/referral.service';
 export default class AuthController {
 
     static async signup(req: Request, res: Response) {
-        const { walletAddress, email, username, type, referralName, phone, address } = req.body;
+        const { walletAddress, username, type, referralName, phone, address } = req.body;
 
         // check if the type atches any in the enum
         if (!Object.values(UserType).includes(type)) {
-            throw new BadRequestError(`Invalid user type. Must be one of ${Object.values(UserType).join(', ')}`);
+            throw new BadRequestError(`User type: Must be one of ${Object.values(UserType).join(', ')}`);
         }
 
-        await UserService.isWalletAddressEmailAndUserNameAvailable(walletAddress, email, username);
+        await UserService.isWalletAddressEmailAndUserNameAvailable(walletAddress, username);
 
         const newUser = await UserService.addUser({
             walletAddress,
-            email,
+            // email,
             // firstName,
             // lastName,
             username,
             status: {
                 activated: false,
                 emailVerified: false,
-                walletVerified: false,
+                walletVerified: true,
             },
             type,
             phone,
@@ -58,13 +58,25 @@ export default class AuthController {
 
         const user = await UserService.viewSingleUserByWalletAddress(walletAddress);
 
-        if (user.status.walletVerified) throw new BadRequestError('Wallet already verified');
-
+        if (!user) {
+            res.status(200).json({
+                status: 'success',
+                message: 'User not found',
+                data: null,
+            });
+            return;
+        }
+        
+        if (user.settings.isBlocked) {
+            throw new ForbiddenError('Oops! Your account has been blocked. Please contact support');
+        }
         // Verify the signature here
         const isValidSignature = AuthUtil.verifyWalletSignature(walletAddress, signature);
         if (!isValidSignature) throw new BadRequestError('Invalid signature');
 
-        await user.update({ status: { ...user.status, walletVerified: true, activated: true } });
+        if (!user.status.walletVerified || !user.status.activated) {
+            await user.update({ status: { ...user.status, walletVerified: true, activated: true } });
+        }
 
         const accessToken = await AuthUtil.generateToken({ type: 'access', user });
         const refreshToken = await AuthUtil.generateToken({ type: 'refresh', user });
@@ -72,42 +84,6 @@ export default class AuthController {
         res.status(200).json({
             status: 'success',
             message: 'Wallet verified successfully',
-            data: {
-                user: user.dataValues,
-                accessToken,
-                refreshToken,
-            },
-        });
-    }
-
-    static async login(req: Request, res: Response) {
-        const { walletAddress, signature } = req.body;
-
-        const user = await UserService.viewSingleUserByWalletAddress(walletAddress);
-
-        if (!user.status.walletVerified) {
-            throw new BadRequestError('Wallet not verified. Please verify your wallet first.');
-        }
-
-        const isValidSignature = AuthUtil.verifyWalletSignature(walletAddress, signature);
-        if (!isValidSignature) {
-            throw new BadRequestError('Invalid signature');
-        }
-
-        if (user.settings.isBlocked) {
-            throw new ForbiddenError('Oops! Your account has been blocked. Please contact support');
-        }
-
-        if (!user.status.activated) {
-            await user.update({ status: { ...user.status, activated: true } });
-        }
-
-        const accessToken = await AuthUtil.generateToken({ type: 'access', user });
-        const refreshToken = await AuthUtil.generateToken({ type: 'refresh', user });
-
-        res.status(200).json({
-            status: 'success',
-            message: 'Login successful',
             data: {
                 user: user.dataValues,
                 accessToken,
