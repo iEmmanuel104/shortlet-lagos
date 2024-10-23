@@ -20,25 +20,37 @@ export interface IDynamicQueryOptions {
     includes?: 'profile' | 'all';
     attributes?: string[];
 }
+interface WhereCondition {
+    email?: string;
+    walletAddress?: string;
+    username?: string;
+}
 
 export default class UserService {
 
-    static async isWalletAddressEmailAndUserNameAvailable(walletAddress: string, email: string, username: string): Promise<boolean> {
-        // Validate email
-        if (!Validator.isValidEmail(email)) {
+
+    static async isWalletAddressEmailAndUserNameAvailable(walletAddress: string, username: string, email?: string): Promise<boolean> {
+        // Validate email if provided
+        if (email && !Validator.isValidEmail(email)) {
             throw new BadRequestError('Invalid email');
         }
 
-        // Construct where condition
+        // Construct where condition based on provided parameters
+        const orConditions: WhereCondition[] = [
+            { walletAddress },
+            { username },
+        ];
+
+        // Only add email condition if email is provided
+        if (email) {
+            orConditions.push({ email });
+        }
+
         const whereCondition = {
-            [Op.or]: [
-                { email: email },
-                { walletAddress: walletAddress },
-                { username: username },
-            ],
+            [Op.or]: orConditions,
         };
 
-        // Find existing users with the given email, wallet address, or username
+        // Find existing users with the given wallet address, username, and email (if provided)
         const existingUsers = await User.findAll({
             where: whereCondition,
             attributes: ['email', 'walletAddress', 'username'],
@@ -47,7 +59,7 @@ export default class UserService {
         // Check for conflicts and collect them
         const conflicts: string[] = [];
         for (const user of existingUsers) {
-            if (user.email === email) {
+            if (email && user.email === email) {
                 conflicts.push('email');
             }
             if (user.walletAddress === walletAddress) {
@@ -61,7 +73,8 @@ export default class UserService {
         // If conflicts found, throw a single error with all conflicts
         if (conflicts.length > 0) {
             const conflictList = conflicts.join(', ');
-            throw new BadRequestError(`${conflictList} provided ${conflicts.length > 1 ? 'are' : 'is'} already in use`);
+            const isPlural = conflicts.length > 1;
+            throw new BadRequestError(`${conflictList} ${isPlural ? 'are' : 'is'} already in use`);
         }
 
         return true;
@@ -161,15 +174,11 @@ export default class UserService {
         return user;
     }
 
-    static async viewSingleUserByWalletAddress(walletAddress: string, transaction?: Transaction): Promise<User> {
+    static async viewSingleUserByWalletAddress(walletAddress: string, transaction?: Transaction): Promise<User | null> {
         const user: User | null = await User.scope('withSettings').findOne({
             where: { walletAddress },
             transaction,
         });
-
-        if (!user) {
-            throw new NotFoundError('Oops User not found');
-        }
 
         return user;
     }
