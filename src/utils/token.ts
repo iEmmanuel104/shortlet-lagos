@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET, JWT_ACCESS_SECRET, JWT_ADMIN_ACCESS_SECRET, JWT_REFRESH_SECRET } from './constants';
+import { JWT_SECRET, JWT_ACCESS_SECRET, JWT_ADMIN_ACCESS_SECRET, JWT_REFRESH_SECRET, SIGNATURE_MESSAGE } from './constants';
 import { v4 as uuidv4 } from 'uuid';
 // import { redisClient } from './redis';
 import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './customErrors';
@@ -180,7 +180,7 @@ class AuthUtil {
 
     static verifyWalletSignature(walletAddress: string, signature: string): boolean {
         try {
-            const message = `Sign this message to verify your wallet: ${walletAddress}`;
+            const message = `Sign this message to verify your wallet: ${walletAddress} - ${SIGNATURE_MESSAGE}`;
             const signerAddress = ethers.verifyMessage(message, signature);
             return signerAddress.toLowerCase() === walletAddress.toLowerCase();
         } catch (error) {
