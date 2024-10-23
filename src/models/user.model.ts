@@ -45,15 +45,21 @@ export default class User extends Model<User | IUser> {
     @IsEmail
     @Index
     @Column({
-        type: DataType.STRING, allowNull: false,
+        type: DataType.STRING,
+        allowNull: true,
         get() {
-            return this.getDataValue('email').trim().toLowerCase();
+            const value = this.getDataValue('email');
+            return value ? value.trim().toLowerCase() : null;
         },
-        set(value: string) {
-            this.setDataValue('email', value.trim().toLowerCase());
+        set(value: string | null) {
+            if (value) {
+                this.setDataValue('email', value.trim().toLowerCase());
+            } else {
+                this.setDataValue('email', null);
+            }
         },
     })
-        email: string;
+        email?: string;
 
     @Index
     @Column({
@@ -200,7 +206,7 @@ export default class User extends Model<User | IUser> {
 
 export interface IUser {
     walletAddress: string;
-    email: string;
+    email?: string;
     firstName?: string;
     lastName?: string;
     otherName?: string;
