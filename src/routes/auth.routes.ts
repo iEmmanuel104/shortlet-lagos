@@ -9,10 +9,7 @@ router
     .post('/signup', AuthController.signup)
 
     // Wallet verification route
-    .post('/verifywallet', AuthController.verifyWallet)
-
-    // Login route
-    .post('/login', AuthController.login)
+    .post('/validatewallet', AuthController.verifyWallet)
 
     // Logout route
     .get('/logout', basicAuth(), AuthenticatedController(AuthController.logout))
