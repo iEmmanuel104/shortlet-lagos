@@ -175,10 +175,19 @@ export default class UserService {
     }
 
     static async viewSingleUserByWalletAddress(walletAddress: string, transaction?: Transaction): Promise<User | null> {
-        const user: User | null = await User.scope('withSettings').findOne({
+        console.log({ walletAddress });
+        const user: User | null = await User.findOne({
             where: { walletAddress },
+            include: [
+                {
+                    model: UserSettings,
+                    as: 'settings',
+                    attributes: ['joinDate', 'isBlocked', 'isDeactivated', 'lastLogin', 'meta'],
+                },
+            ],
             transaction,
         });
+        console.log({ user });
 
         return user;
     }
