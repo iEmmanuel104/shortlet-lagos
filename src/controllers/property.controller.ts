@@ -3,6 +3,7 @@ import PropertyService, { IViewPropertiesQuery } from '../services/property.serv
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { BadRequestError } from '../utils/customErrors';
 import { IProperty } from '../models/property.model';
+import { UserType } from '../models/user.model';
 
 export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
@@ -84,6 +85,23 @@ export default class PropertyController {
             status: 'success',
             message: 'Property deleted successfully',
             data: null,
+        });
+    }
+
+    static async getOwnerStats(req: AuthenticatedRequest, res: Response) {
+        // Verify user exists and is a property owner
+        const user = req.user;
+
+        if (user.type !== UserType.PROJECT_OWNER) {
+            throw new BadRequestError('User is not a property owner');
+        }
+
+        const stats = await PropertyService.getPropertyOwnerStats(user.id);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Property owner statistics retrieved successfully',
+            data: stats,
         });
     }
 }
