@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars */
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID, PrimaryKey, Default, AfterCreate, AfterDestroy } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID, PrimaryKey, Default, AfterCreate, AfterDestroy, AfterUpdate } from 'sequelize-typescript';
 import User from './user.model';
 import Property from './property.model';
-import { updatePropertyInvestorCount } from './propertyStats.model';
+import { calculateAndUpdateYield, updatePropertyInvestorCount } from './propertyStats.model';
 
 export enum InvestmentStatus {
     Presale = 'presale',
@@ -51,13 +51,20 @@ export default class Investment extends Model<Investment | IInvestment> {
         investor: User;
 
     @AfterCreate
-    static async IncrementInvestorCount(instance: Investment) {
-        await updatePropertyInvestorCount(instance.investorId, true);
+    static async handleAfterCreate(instance: Investment) {
+        await updatePropertyInvestorCount(instance.propertyId, true);
+        await calculateAndUpdateYield(instance.propertyId);
+    }
+
+    @AfterUpdate
+    static async handleAfterUpdate(instance: Investment) {
+        await calculateAndUpdateYield(instance.propertyId);
     }
 
     @AfterDestroy
-    static async DecrementInvestorCount(instance: Investment) {
-        await updatePropertyInvestorCount(instance.investorId, false);
+    static async handleAfterDestroy(instance: Investment) {
+        await updatePropertyInvestorCount(instance.propertyId, false);
+        await calculateAndUpdateYield(instance.propertyId);
     }
 
 }
