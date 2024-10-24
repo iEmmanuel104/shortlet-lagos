@@ -2,7 +2,7 @@ import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID } from 's
 import Property from './property.model';
 
 @Table
-export default class Tokenomics extends Model<Tokenomics> {
+export default class Tokenomics extends Model<Tokenomics | ITokenomics> {
     // @IsUUID(4)
     // @PrimaryKey
     // @Default(DataType.UUIDV4)
