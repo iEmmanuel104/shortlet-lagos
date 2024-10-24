@@ -5,6 +5,7 @@ import Investment, { InvestmentStatus } from '../models/investment.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
+import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
 
 export interface IViewPropertiesQuery {
     page?: number;
@@ -142,29 +143,6 @@ export default class PropertyService {
         } else return { properties };
     }
 
-    static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
-        const { category, name, description, location, price, gallery, contractAddress, ownerId } = data;
-
-        const missingFields = [];
-
-        if (!category) missingFields.push('category');
-        if (!name) missingFields.push('username');
-        if (!description) missingFields.push('description');
-        if (!location) missingFields.push('location');
-        if (!price) missingFields.push('price');
-        if (!gallery || gallery.length === 0) missingFields.push('gallery');
-        if (!contractAddress) missingFields.push('contractAddress');
-        if (!ownerId) missingFields.push('ownerId');
-
-        if (missingFields.length > 0) {
-            throw new BadRequestError(`Missing or invalid fields: ${missingFields.join(', ')}`);
-        }
-
-        // Additional validations can be added here
-
-        return data;
-    }
-
     static async getPropertyOwnerStats(ownerId: string): Promise<IPropertyOwnerStats> {
         // Get all properties by owner
         const properties = await Property.findAll({
@@ -268,4 +246,130 @@ export default class PropertyService {
         };
     }
 
+    static async updatePropertyTokenomics(propertyId: string, tokenomicsData: ITokenomics): Promise<Property> {
+        await this.validateTokenomicsData(tokenomicsData);
+
+        const property = await Property.findByPk(propertyId, {
+            include: [{ model: Tokenomics }],
+        });
+
+        if (!property) {
+            throw new BadRequestError('Property not found');
+        }
+
+        // Validate required media before publishing
+        await this.validatePropertyMedia(property);
+
+        if (property.tokenomics) {
+            // Update existing tokenomics
+            await property.tokenomics.update({
+                ...tokenomicsData,
+                remainingTokens: tokenomicsData.totalTokenSupply,
+                propertyId,
+            });
+        } else {
+            // Create new tokenomics record
+            await Tokenomics.create({
+                ...tokenomicsData,
+                remainingTokens: tokenomicsData.totalTokenSupply,
+                propertyId,
+            } as ITokenomics);
+        }
+
+        // Update property draft status
+        await property.update({ isDraft: false });
+
+        // Reload property with updated tokenomics
+        const updatedProperty = await Property.findByPk(propertyId, {
+            include: [{
+                model: Tokenomics,
+                attributes: [
+                    'totalTokenSupply',
+                    'remainingTokens',
+                    'tokenPrice',
+                    'distribution',
+                    'distributionDescription',
+                ],
+            }],
+        });
+
+        if (!updatedProperty) {
+            throw new BadRequestError('Failed to reload property after tokenomics update');
+        }
+
+        return updatedProperty;
+    }
+
+
+    static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
+        const { category, name, description, location, metrics, listingPeriod } = data;
+
+        const missingFields = [];
+
+        if (!category) missingFields.push('category');
+        if (!name) missingFields.push('name');
+        if (!description) missingFields.push('description');
+        if (!location) missingFields.push('location');
+        if (!metrics?.TIG) missingFields.push('metrics.TIG');
+        if (!metrics?.MIA) missingFields.push('metrics.MIA');
+        if (!listingPeriod?.start) missingFields.push('listingPeriod.start');
+        if (!listingPeriod?.end) missingFields.push('listingPeriod.end');
+
+        if (missingFields.length > 0) {
+            throw new BadRequestError(`Missing required fields: ${missingFields.join(', ')}`);
+        }
+
+        // Validate listing period
+        if (!listingPeriod) {
+            throw new BadRequestError('Listing period is required');
+        }
+        const start = new Date(listingPeriod.start);
+        const end = new Date(listingPeriod.end);
+        if (start >= end) {
+            throw new BadRequestError('Listing end date must be after start date');
+        }
+
+        return data;
+    }
+
+    static async validatePropertyMedia(property: Property): Promise<void> {
+        if (!property.banner) {
+            throw new BadRequestError('Property banner is required');
+        }
+        if (!property.gallery || property.gallery.length === 0) {
+            throw new BadRequestError('At least one gallery image is required');
+        }
+        if (!property.document || property.document.length === 0) {
+            throw new BadRequestError('At least one document is required');
+        }
+    }
+
+    static async validateTokenomicsData(data: ITokenomics): Promise<void> {
+        const { totalTokenSupply, tokenPrice, distribution, distributionDescription } = data;
+        const missingFields = [];
+
+        if (!totalTokenSupply || totalTokenSupply <= 0) missingFields.push('totalTokenSupply');
+        if (!tokenPrice || tokenPrice <= 0) missingFields.push('tokenPrice');
+        if (!distribution) missingFields.push('distribution');
+        if (!distributionDescription) missingFields.push('distributionDescription');
+
+        if (missingFields.length > 0) {
+            throw new BadRequestError(`Missing or invalid tokenomics fields: ${missingFields.join(', ')}`);
+        }
+
+        // Validate distribution percentages sum to 100
+        const { team, advisors, investors, other } = distribution;
+        const total = (team || 0) + (advisors || 0) + (investors || 0) + (other || 0);
+
+        if (total !== 100) {
+            throw new BadRequestError('Distribution percentages must sum to 100%');
+        }
+
+        // Validate distribution values are non-negative
+        Object.entries(distribution).forEach(([key, value]) => {
+            if (value < 0) {
+                throw new BadRequestError(`Distribution ${key} percentage cannot be negative`);
+            }
+        });
+    }
 }
