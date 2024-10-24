@@ -5,6 +5,7 @@ import { BadRequestError } from '../utils/customErrors';
 import { IProperty } from '../models/property.model';
 import { UserType } from '../models/user.model';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
+import { ITokenomics } from '../models/tokenomics.model';
 
 export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
@@ -45,13 +46,18 @@ export default class PropertyController {
     }
 
     static async addProperty(req: AuthenticatedRequest, res: Response) {
-        // eslint-disable-next-line no-undef
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const uploadedUrls = await PropertyController.handleFileUploads(files, req.user.id);
+
+        // Verify user exists and is a property owner
+        const user = req.user;
+
+        if (user.type !== UserType.PROJECT_OWNER) {
+            throw new BadRequestError('User is not a property owner');
+        }
 
         const propertyData = {
             ...req.body,
-            ...uploadedUrls,
+            isDraft: true,
+            ownerId: req.user.id,
         };
 
         const validatedData = await PropertyService.validatePropertyData(propertyData);
@@ -72,6 +78,11 @@ export default class PropertyController {
         }
 
         const property = await PropertyService.viewProperty(id);
+
+        // Check ownership
+        if (property.ownerId !== req.user.id) {
+            throw new BadRequestError('Unauthorized to update this property');
+        }
         // eslint-disable-next-line no-undef
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const uploadedUrls = await PropertyController.handleFileUploads(files, req.user.id);
@@ -87,6 +98,30 @@ export default class PropertyController {
         res.status(200).json({
             status: 'success',
             message: 'Property updated successfully',
+            data: updatedProperty,
+        });
+    }
+
+    static async updatePropertyTokenomics(req: AuthenticatedRequest, res: Response) {
+        const { id } = req.params;
+        const tokenomicsData = req.body as ITokenomics;
+
+        if (!id) {
+            throw new BadRequestError('Property ID is required');
+        }
+
+        const property = await PropertyService.viewProperty(id);
+
+        // Check ownership
+        if (property.ownerId !== req.user.id) {
+            throw new BadRequestError('Unauthorized to update this property');
+        }
+
+        const updatedProperty = await PropertyService.updatePropertyTokenomics(id, tokenomicsData);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Property tokenomics updated successfully',
             data: updatedProperty,
         });
     }
