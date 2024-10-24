@@ -49,7 +49,7 @@ export const basicAuth = function () {
         const jwtToken = authHeader.split(' ')[1];
 
         try {
-            const payload = AuthUtil.decodeToken(jwtToken) as unknown as DecodedTokenData;
+            const payload = await AuthUtil.decodeToken(jwtToken) as unknown as DecodedTokenData;
             if (!payload || !payload.user || !payload.user.walletAddress) {
                 throw new UnauthorizedError('Invalid token');
             }
