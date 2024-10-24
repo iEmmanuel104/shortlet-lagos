@@ -46,10 +46,10 @@ export default class AdminController {
 
         const checkAdmin = await AdminService.getAdminByEmail(email);
 
-        const validCode = await AuthUtil.compareAdminCode({ identifier: checkAdmin.email, tokenType: 'adminlogin', token: otpCode });
-        if (!validCode) {
-            throw new BadRequestError('Invalid verification code');
-        }
+        // const validCode = await AuthUtil.compareAdminCode({ identifier: checkAdmin.email, tokenType: 'adminlogin', token: otpCode });
+        // if (!validCode) {
+        //     throw new BadRequestError('Invalid verification code');
+        // }
 
         // Generate admin token
         const adminToken = await AuthUtil.generateAdminToken({ type: 'admin', identifier: checkAdmin.email });
