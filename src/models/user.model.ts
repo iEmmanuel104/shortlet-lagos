@@ -182,6 +182,12 @@ export default class User extends Model<User | IUser> {
                 whereOptions.email = whereOptions.email.trim().toLowerCase();
             }
         }
+        if (options.where && 'walletAddress' in options.where && typeof options.where.walletAddress === 'string') {
+            const whereOptions = options.where as { walletAddress?: string };
+            if (whereOptions.walletAddress) {
+                whereOptions.walletAddress = whereOptions.walletAddress.trim().toLowerCase();
+            }
+        }
     }
 
     @BeforeCreate
