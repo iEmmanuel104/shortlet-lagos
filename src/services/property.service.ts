@@ -1,7 +1,7 @@
 import { Transaction, Op, Includeable } from 'sequelize';
 import Property, { IProperty } from '../models/property.model';
 import User from '../models/user.model';
-import Investment from '../models/investment.model';
+import Investment, { InvestmentStatus } from '../models/investment.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
@@ -14,6 +14,27 @@ export interface IViewPropertiesQuery {
     minPrice?: number;
     maxPrice?: number;
     ownerId?: string;
+}
+
+interface IPropertyOwnerStats {
+    totalListings: number;
+    activeListings: number;
+    totalInvestmentAmount: number;
+    totalInvestorsCount: number;
+    investments: {
+        completed: {
+            count: number;
+            percentageChange: number;
+        };
+        pending: {
+            count: number;
+            percentageChange: number;
+        };
+    };
+    recentActivity: {
+        newInvestors: number;
+        newInvestments: number;
+    };
 }
 
 export default class PropertyService {
@@ -122,7 +143,7 @@ export default class PropertyService {
     }
 
     static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
-        const { category, name, description, location, price, gallery, shares, contractAddress, ownerId } = data;
+        const { category, name, description, location, price, gallery, contractAddress, ownerId } = data;
 
         const missingFields = [];
 
@@ -132,7 +153,6 @@ export default class PropertyService {
         if (!location) missingFields.push('location');
         if (!price) missingFields.push('price');
         if (!gallery || gallery.length === 0) missingFields.push('gallery');
-        if (!shares) missingFields.push('shares');
         if (!contractAddress) missingFields.push('contractAddress');
         if (!ownerId) missingFields.push('ownerId');
 
@@ -144,4 +164,108 @@ export default class PropertyService {
 
         return data;
     }
+
+    static async getPropertyOwnerStats(ownerId: string): Promise<IPropertyOwnerStats> {
+        // Get all properties by owner
+        const properties = await Property.findAll({
+            where: { ownerId },
+            include: [
+                {
+                    model: PropertyStats,
+                    attributes: ['numberOfInvestors', 'totalInvestmentAmount'],
+                },
+                {
+                    model: Investment,
+                    attributes: ['id', 'amount', 'status', 'createdAt', 'investorId'],
+                    include: [
+                        {
+                            model: User,
+                            as: 'investor',
+                            attributes: ['id'],
+                        },
+                    ],
+                },
+            ],
+        });
+
+        // Calculate total listings and active listings
+        const totalListings = properties.length;
+        const activeListings = properties.filter(p => !p.isDraft).length;
+
+        // Aggregate investment data
+        let totalInvestmentAmount = 0;
+        const totalInvestorsSet = new Set();
+        let completedInvestments = 0;
+        let pendingInvestments = 0;
+        let lastMonthCompletedInvestments = 0;
+        let lastMonthPendingInvestments = 0;
+        let newInvestorsLastMonth = 0;
+        let newInvestmentsLastMonth = 0;
+
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        properties.forEach(property => {
+            // Sum up total investment amount
+            totalInvestmentAmount += property.stats?.totalInvestmentAmount || 0;
+
+            // Process investments
+            property.investments?.forEach(investment => {
+                // Count unique investors
+                totalInvestorsSet.add(investment.investorId);
+
+                // Count investments by status
+                if (investment.status === InvestmentStatus.Finish) {
+                    completedInvestments++;
+                    if (new Date(investment.createdAt) > oneMonthAgo) {
+                        lastMonthCompletedInvestments++;
+                    }
+                } else {
+                    pendingInvestments++;
+                    if (new Date(investment.createdAt) > oneMonthAgo) {
+                        lastMonthPendingInvestments++;
+                    }
+                }
+
+                // Count new investments and investors in last month
+                if (new Date(investment.createdAt) > oneMonthAgo) {
+                    newInvestmentsLastMonth++;
+                    if (property.stats?.numberOfInvestors) {
+                        newInvestorsLastMonth++;
+                    }
+                }
+            });
+        });
+
+        // Calculate percentage changes
+        const completedPercentageChange = lastMonthCompletedInvestments > 0
+            ? ((lastMonthCompletedInvestments / completedInvestments) * 100)
+            : 0;
+
+        const pendingPercentageChange = lastMonthPendingInvestments > 0
+            ? ((lastMonthPendingInvestments / pendingInvestments) * 100)
+            : 0;
+
+        return {
+            totalListings,
+            activeListings,
+            totalInvestmentAmount,
+            totalInvestorsCount: totalInvestorsSet.size,
+            investments: {
+                completed: {
+                    count: completedInvestments,
+                    percentageChange: completedPercentageChange,
+                },
+                pending: {
+                    count: pendingInvestments,
+                    percentageChange: pendingPercentageChange,
+                },
+            },
+            recentActivity: {
+                newInvestors: newInvestorsLastMonth,
+                newInvestments: newInvestmentsLastMonth,
+            },
+        };
+    }
+
 }
