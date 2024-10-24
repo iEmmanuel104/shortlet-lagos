@@ -19,6 +19,7 @@ router
     .get('/:id', PropertyController.getPropertyById)
     .post('/', basicAuth(), AuthenticatedController(PropertyController.addProperty))
     .patch('/:id', basicAuth(), upload, AuthenticatedController(PropertyController.updateProperty))
+    .patch('/:id/tokenomics', basicAuth(), AuthenticatedController(PropertyController.updatePropertyTokenomics))
     .get('/owner/stats', basicAuth(), AuthenticatedController(PropertyController.getOwnerStats))
     .delete('/:id', basicAuth(), AuthenticatedController(PropertyController.deleteProperty));
 
