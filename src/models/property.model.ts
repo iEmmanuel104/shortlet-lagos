@@ -33,8 +33,8 @@ export default class Property extends Model<Property | IProperty> {
     @Column(DataType.STRING)
         banner: string;
 
-    @Column(DataType.STRING)
-        document: string;
+    @Column(DataType.ARRAY(DataType.STRING))
+        document: string[];
 
     @Column(DataType.BOOLEAN)
         isDraft: boolean;
@@ -80,11 +80,11 @@ export interface IProperty {
     description: string;
     location: string;
     price: number;
-    gallery: string[];
+    gallery?: string[];
     banner?: string;
-    document?: string;
+    document?: string[];
     isDraft: boolean;
-    contractAddress: string;
+    contractAddress?: string;
     listingPeriod: {
         start: Date;
         end: Date;
