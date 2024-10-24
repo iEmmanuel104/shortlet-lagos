@@ -48,7 +48,6 @@ export default class Property extends Model<Property | IProperty> {
         end: Date;
     };
 
-
     @Column(DataType.JSONB)
         metrics: {
             TIG: number; // Total Investment Goal
