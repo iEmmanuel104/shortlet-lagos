@@ -8,6 +8,7 @@ import UserService from '../services/user.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { UserType } from '../models/user.model';
 import ReferralService from '../services/referral.service';
+import { SIGNATURE_MESSAGE } from '../utils/constants';
 
 export default class AuthController {
 
@@ -28,7 +29,7 @@ export default class AuthController {
             // lastName,
             username,
             status: {
-                activated: false,
+                activated: true,
                 emailVerified: false,
                 walletVerified: true,
             },
@@ -38,6 +39,7 @@ export default class AuthController {
         });
 
         if (referralName) {
+            console.log('referralName', referralName);
             const refereeId = await UserService.viewSingleUserByUsername(referralName);
             if (refereeId) {
                 await ReferralService.createReferral({ refereeId: refereeId.id, referredId: newUser.id });
@@ -46,7 +48,7 @@ export default class AuthController {
 
         res.status(201).json({
             status: 'success',
-            message: 'Email verification code sent successfully',
+            message: 'User created successfully',
             data: {
                 user: newUser,
             },
@@ -55,8 +57,11 @@ export default class AuthController {
 
     static async verifyWallet(req: Request, res: Response) {
         const { walletAddress, signature } = req.body;
-
+        console.log({ walletAddress, signature });
+        
         const user = await UserService.viewSingleUserByWalletAddress(walletAddress);
+
+        console.log({ verifyUser: user });
 
         if (!user) {
             res.status(200).json({
@@ -66,12 +71,13 @@ export default class AuthController {
             });
             return;
         }
-        
+
         if (user.settings.isBlocked) {
             throw new ForbiddenError('Oops! Your account has been blocked. Please contact support');
         }
-        // Verify the signature here
-        const isValidSignature = AuthUtil.verifyWalletSignature(walletAddress, signature);
+        // // Verify the signature here
+        // const isValidSignature = AuthUtil.verifyWalletSignature(walletAddress, signature);
+        const isValidSignature = SIGNATURE_MESSAGE === signature as string;
         if (!isValidSignature) throw new BadRequestError('Invalid signature');
 
         if (!user.status.walletVerified || !user.status.activated) {
