@@ -46,7 +46,26 @@ export default class PropertyService {
     }
 
     static async updateProperty(property: Property, dataToUpdate: Partial<IProperty>): Promise<Property> {
-        await property.update(dataToUpdate);
+        const currentData = property.toJSON();
+
+        // Ensure arrays are properly handled
+        const updatedData = {
+            ...currentData,
+            ...dataToUpdate,
+            // Preserve arrays if they're not being updated
+            gallery: dataToUpdate.gallery || currentData.gallery || [],
+            document: dataToUpdate.document || currentData.document || [],
+            category: Array.isArray(dataToUpdate.category)
+                ? dataToUpdate.category
+                : typeof dataToUpdate.category === 'string'
+                    ? JSON.parse(dataToUpdate.category)
+                    : currentData.category || [],
+        };
+
+        // Update the property with the processed data
+        await property.update(updatedData);
+
+        // Fetch the updated property
         const updatedProperty = await this.viewProperty(property.id);
         return updatedProperty;
     }
@@ -303,7 +322,6 @@ export default class PropertyService {
 
     static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
         const { category, name, description, location, metrics, listingPeriod } = data;
-
         const missingFields = [];
 
         if (!category) missingFields.push('category');
@@ -329,7 +347,23 @@ export default class PropertyService {
             throw new BadRequestError('Listing end date must be after start date');
         }
 
-        return { ...data, price: metrics?.MIA };
+        // Parse category if it's a string
+        let parsedCategory = category;
+        if (typeof category === 'string') {
+            try {
+                parsedCategory = JSON.parse(category);
+            } catch (error) {
+                // If it's a single category as string, convert to array
+                parsedCategory = [category];
+            }
+        }
+
+        // Return the validated and parsed data
+        return {
+            ...data,
+            category: parsedCategory,
+            price: metrics?.MIA,
+        };
     }
 
     static async validatePropertyMedia(property: Property): Promise<void> {
