@@ -310,10 +310,10 @@ export default class PropertyService {
         if (!name) missingFields.push('name');
         if (!description) missingFields.push('description');
         if (!location) missingFields.push('location');
-        if (!metrics?.TIG) missingFields.push('metrics.TIG');
-        if (!metrics?.MIA) missingFields.push('metrics.MIA');
-        if (!listingPeriod?.start) missingFields.push('listingPeriod.start');
-        if (!listingPeriod?.end) missingFields.push('listingPeriod.end');
+        if (!metrics?.TIG) missingFields.push('Total Investment Goal (TIG)');
+        if (!metrics?.MIA) missingFields.push('Minimum Investment Amount (MIA)');
+        if (!listingPeriod?.start) missingFields.push('listingPeriod start date');
+        if (!listingPeriod?.end) missingFields.push('listingPeriod end date');
 
         if (missingFields.length > 0) {
             throw new BadRequestError(`Missing required fields: ${missingFields.join(', ')}`);
@@ -329,7 +329,7 @@ export default class PropertyService {
             throw new BadRequestError('Listing end date must be after start date');
         }
 
-        return data;
+        return { ...data, price: metrics?.MIA };
     }
 
     static async validatePropertyMedia(property: Property): Promise<void> {
