@@ -83,7 +83,17 @@ export default class PropertyService {
             },
             {
                 model: Investment,
+                as: 'investments',
                 attributes: ['id', 'amount', 'date', 'sharesAssigned', 'estimatedReturns', 'status'],
+            },
+            {
+                model: PropertyStats,
+                as: 'stats',
+                attributes: ['yield', 'totalInvestmentAmount', 'totalEstimatedReturns', 'overallRating', 'numberOfInvestors', 'ratingCount', 'visitCount'],
+            },
+            {
+                model: Tokenomics,
+                attributes: ['totalTokenSupply', 'remainingTokens', 'tokenPrice', 'distribution', 'distributionDescription'],
             },
         ];
 
@@ -120,6 +130,8 @@ export default class PropertyService {
                 [Op.or]: [
                     { name: { [Op.iLike]: `%${query}%` } },
                     { description: { [Op.iLike]: `%${query}%` } },
+                    { location: { [Op.iLike]: `%${query}%` } },
+
                 ],
             };
         }
