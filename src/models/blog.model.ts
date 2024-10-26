@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 // blog.model.ts
-import { Table, Column, Model, DataType, IsUUID, PrimaryKey, Default, HasMany } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, IsUUID, PrimaryKey, Default, HasMany, BelongsTo, ForeignKey } from 'sequelize-typescript';
 import BlogActivity from './blogActivity.model';
+import User from './user.model';
 
 export enum BlogStatus {
     Draft = 'Draft',
@@ -44,19 +45,26 @@ export default class Blog extends Model<Blog | IBlog> {
     @Column({ type: DataType.ARRAY(DataType.STRING), allowNull: true })
         tags: string[];
 
-    @Column({
-        type: DataType.JSONB,
-        allowNull: false,
-    })
-        author: {
-        name: string;
-        email: string;
-        image?: string;
-        bio?: string;
-    };
+    // @Column({
+    //     type: DataType.JSONB,
+    //     allowNull: false,
+    // })
+    //     author: {
+    //     name: string;
+    //     email: string;
+    //     image?: string;
+    //     bio?: string;
+    // };
+
+    @ForeignKey(() => User)
+    @Column
+        authorId: string;
 
     @HasMany(() => BlogActivity)
         activities: BlogActivity[];
+    
+    @BelongsTo(() => User)
+        author: User;
 }
 
 export interface IBlog {
@@ -69,10 +77,11 @@ export interface IBlog {
     };
     status?: BlogStatus;
     tags?: string[];
-    author: {
-        name: string;
-        email: string;
-        image?: string;
-        bio?: string;
-    };
+    authorId: string;
+    // author: {
+    //     name: string;
+    //     email: string;
+    //     image?: string;
+    //     bio?: string;
+    // };
 }
