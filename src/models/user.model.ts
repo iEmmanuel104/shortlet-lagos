@@ -3,9 +3,16 @@ import {
     Table, Column, Model, DataType, HasOne, Default, BeforeFind, Scopes,
     IsEmail, IsUUID, PrimaryKey, Index, BeforeCreate, BeforeUpdate,
     Unique,
+    HasMany,
 } from 'sequelize-typescript';
 import UserSettings from './userSettings.model';
 import { FindOptions } from 'sequelize';
+import Blog from './blog.model';
+import BlogActivity from './blogActivity.model';
+import Review from './review.model';
+import VerificationDoc from './verificationDocs.model';
+import WithdrawalRequest from './withdrawalRequest.model';
+import Referral from './referral.model';
 
 export enum UserType {
     INVESTOR = 'investor',
@@ -31,7 +38,7 @@ export default class User extends Model<User | IUser> {
     @Column
         id: string;
 
-    
+
     @Unique
     @Column({
         type: DataType.STRING,
@@ -41,7 +48,7 @@ export default class User extends Model<User | IUser> {
         },
     })
         walletAddress: string;
-    
+
     @IsEmail
     @Index
     @Column({
@@ -107,7 +114,7 @@ export default class User extends Model<User | IUser> {
         },
     })
         username: string;
-    
+
     @Column({ type: DataType.JSONB, allowNull: false, defaultValue: { activated: false, emailVerified: false } })
         status: {
         activated: boolean;
@@ -150,7 +157,7 @@ export default class User extends Model<User | IUser> {
         },
     })
         dob: Date;
-    
+
     @Column({ type: DataType.JSONB })
         address: {
         street: string;
@@ -166,12 +173,33 @@ export default class User extends Model<User | IUser> {
         defaultValue: UserType.INVESTOR,
     })
         type: UserType;
-    
+
     @Column({ type: DataType.STRING })
         referralBonus: string;
 
     @HasOne(() => UserSettings)
         settings: UserSettings;
+
+    @HasMany(() => Blog)
+        blogs: Blog[];
+
+    @HasMany(() => BlogActivity)
+        blogActivities: BlogActivity[];
+
+    @HasMany(() => Review)
+        reviews: Review[];
+
+    @HasMany(() => Referral)
+        referrals: Referral[];
+    
+    @HasMany(() => Referral)
+        referred: Referral[];
+
+    @HasMany(() => VerificationDoc)
+        verificationDoc: VerificationDoc[];
+
+    @HasMany(() => WithdrawalRequest)
+        withdrawalRequest: WithdrawalRequest[];
 
 
     @BeforeFind
