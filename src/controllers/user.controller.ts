@@ -3,6 +3,7 @@ import UserService from '../services/user.service';
 import { BadRequestError } from '../utils/customErrors';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
+import Validator from '../utils/validators';
 
 export default class UserController {
 
@@ -50,8 +51,11 @@ export default class UserController {
     }
 
     static async updateUser(req: AuthenticatedRequest, res: Response) {
-        const { firstName, lastName, otherName, displayImage, gender, isDeactivated } = req.body;
-
+        const { email, firstName, lastName, otherName, displayImage, gender, isDeactivated } = req.body;
+        
+        if (email && !Validator.isValidEmail(email)) {
+            throw new BadRequestError('Invalid email');
+        }
         // eslint-disable-next-line no-undef
         const file = req.file as Express.Multer.File | undefined;
         let url;
@@ -73,6 +77,7 @@ export default class UserController {
             ...(lastName && { lastName }),
             ...(otherName && { otherName }),
             ...(gender && { gender }),
+            ...(email && { email }),
             ...(url && { displayImage: url }),
         };
 
