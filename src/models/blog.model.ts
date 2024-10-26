@@ -31,6 +31,7 @@ export default class Blog extends Model<Blog | IBlog> {
         media: {
         images?: string[];
         videos?: string[];
+        documents?: string[];
     };
 
     @Column({
@@ -64,6 +65,7 @@ export interface IBlog {
     media?: {
         images?: string[];
         videos?: string[];
+        documents?: string[];
     };
     status?: BlogStatus;
     tags?: string[];
