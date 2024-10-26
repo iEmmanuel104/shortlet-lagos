@@ -15,7 +15,6 @@ export default class BlogController {
         const {
             title,
             content,
-            author,
             tags,
             media,
         } = validatedData;
@@ -67,7 +66,7 @@ export default class BlogController {
         const blogData: IBlog = {
             title,
             content,
-            author,
+            authorId: req.user.id,
             tags,
             media: {
                 images,
@@ -98,7 +97,7 @@ export default class BlogController {
         const {
             title,
             content,
-            author,          
+            // author,          
             tags,
             media,
             status,
@@ -151,7 +150,7 @@ export default class BlogController {
         const dataToUpdate: Partial<IBlog> = {
             ...(title && { title }),
             ...(content && { content }),
-            ...(author && { author }),
+            // ...(author && { author }),
             ...(tags && { tags }),
             ...(status && { status }),
             media: {
@@ -193,7 +192,7 @@ export default class BlogController {
     }
 
     static async getAllBlogs(req: Request, res: Response) {
-        const { page, size, status, q, tag, userId } = req.query;
+        const { page, size, status, q, tag, userId, authorId } = req.query;
 
         const blogs = await BlogService.getAllBlogs({
             page: page ? parseInt(page as string) : undefined,
@@ -202,6 +201,7 @@ export default class BlogController {
             q: q as string,
             tag: tag as string,
             userId: userId as string,
+            authorId: authorId as string,
         });
 
         res.status(200).json({
