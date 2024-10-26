@@ -22,6 +22,7 @@ export default class BlogController {
 
         let images = media?.images ?? [];
         let videos = media?.videos ?? [];
+        let documents = media?.documents ?? [];
 
         // Handle file uploads if present
         const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -49,6 +50,18 @@ export default class BlogController {
                 ));
                 videos = videoResults.map(result => result.url as string);
             }
+
+            if (files.documents) {
+                const documentResults = await Promise.all(files.documents.map(file =>
+                    CloudinaryClientConfig.uploadtoCloudinary({
+                        fileBuffer: file.buffer,
+                        id: HelperUtils.generateRandomString(8),
+                        name: file.originalname,
+                        type: 'blog/document',
+                    })
+                ));
+                documents = documentResults.map(result => result.url as string);
+            }
         }
 
         const blogData: IBlog = {
@@ -59,6 +72,7 @@ export default class BlogController {
             media: {
                 images,
                 videos,
+                documents,
             },
         };
 
@@ -92,6 +106,7 @@ export default class BlogController {
 
         let images = media?.images ?? blog.media.images ?? [];
         let videos = media?.videos ?? blog.media.videos ?? [];
+        let documents = media?.documents ?? blog.media.documents ?? [];
 
         // Handle file uploads if present
         const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -119,6 +134,18 @@ export default class BlogController {
                 ));
                 videos = [...videos, ...videoResults.map(result => result.url as string)];
             }
+
+            if (files.documents) {
+                const documentResults = await Promise.all(files.documents.map(file =>
+                    CloudinaryClientConfig.uploadtoCloudinary({
+                        fileBuffer: file.buffer,
+                        id: HelperUtils.generateRandomString(8),
+                        name: file.originalname,
+                        type: 'blog/document',
+                    })
+                ));
+                documents = [...documents, ...documentResults.map(result => result.url as string)];
+            }
         }
 
         const dataToUpdate: Partial<IBlog> = {
@@ -130,6 +157,7 @@ export default class BlogController {
             media: {
                 images,
                 videos,
+                documents,
             },
         };
 
