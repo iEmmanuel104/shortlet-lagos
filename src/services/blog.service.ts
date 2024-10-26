@@ -15,6 +15,7 @@ export interface IViewBlogsQuery {
     status?: BlogStatus;
     tag?: string;
     userId?: string;
+    authorId?: string;
     q?: string;
 }
 
@@ -85,7 +86,7 @@ export default class BlogService {
     }
 
     static async getAllBlogs(queryData: IViewBlogsQuery): Promise<{ blogs: Blog[], count?: number, totalPages?: number }> {
-        const { page, size, status, tag, q: query, userId } = queryData;
+        const { page, size, status, tag, q: query, userId, authorId } = queryData;
         const where: Record<string | symbol, unknown> = {};
 
         if (query) {
@@ -100,6 +101,10 @@ export default class BlogService {
         }
         if (tag) {
             where.tags = { [Op.contains]: [tag] };
+        }
+
+        if (authorId) {
+            where.authorId = authorId;
         }
 
         let conditions: Record<string, unknown> = {};
@@ -220,7 +225,7 @@ export default class BlogService {
             media,
             status,
             tags,
-            author,
+            // author,
         } = data;
 
         if (!isUpdate) {
@@ -230,9 +235,9 @@ export default class BlogService {
             if (!content || typeof content !== 'string') {
                 throw new BadRequestError('Valid content is required');
             }
-            if (!author || typeof author !== 'object' || !author.name || !author.email) {
-                throw new BadRequestError('Valid author information is required');
-            }
+            // if (!author || typeof author !== 'object' || !author.name || !author.email) {
+            //     throw new BadRequestError('Valid author information is required');
+            // }
         }
 
         // Validate title if provided
@@ -269,17 +274,17 @@ export default class BlogService {
         }
 
         // Validate author if provided
-        if (author !== undefined) {
-            if (typeof author !== 'object' || !author.name || !author.email) {
-                throw new BadRequestError('Author must have a name and email');
-            }
-            if (author.image !== undefined && typeof author.image !== 'string') {
-                throw new BadRequestError('Author image must be a string');
-            }
-            if (author.bio !== undefined && typeof author.bio !== 'string') {
-                throw new BadRequestError('Author bio must be a string');
-            }
-        }
+        // if (author !== undefined) {
+        //     if (typeof author !== 'object' || !author.name || !author.email) {
+        //         throw new BadRequestError('Author must have a name and email');
+        //     }
+        //     if (author.image !== undefined && typeof author.image !== 'string') {
+        //         throw new BadRequestError('Author image must be a string');
+        //     }
+        //     if (author.bio !== undefined && typeof author.bio !== 'string') {
+        //         throw new BadRequestError('Author bio must be a string');
+        //     }
+        // }
 
         // If it's an update, check if the blog exists
         if (isUpdate && id) {
