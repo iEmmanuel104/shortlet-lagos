@@ -222,6 +222,7 @@ export interface IUser {
         emailVerified: boolean;
         walletVerified: boolean;
     };
+    gender?: string;
     displayImage?: string;
     fullName?: string;
     phone?: {
