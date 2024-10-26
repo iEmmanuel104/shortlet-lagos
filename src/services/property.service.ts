@@ -125,27 +125,50 @@ export default class PropertyService {
 
         let where = {};
 
+        // Enhanced search query handling
         if (query !== undefined && query !== '') {
+            const searchTerm = query.trim().toLowerCase();
             where = {
                 [Op.or]: [
-                    { name: { [Op.iLike]: `%${query}%` } },
-                    { description: { [Op.iLike]: `%${query}%` } },
-                    { location: { [Op.iLike]: `%${query}%` } },
-
+                    { name: { [Op.iLike]: `%${searchTerm}%` } },
+                    { description: { [Op.iLike]: `%${searchTerm}%` } },
+                    { location: { [Op.iLike]: `%${searchTerm}%` } },
+                    // // Search within category array
+                    // {
+                    //     category: {
+                    //         [Op.overlap]: [searchTerm],
+                    //     },
+                    // },
+                    // // Search for partial matches in category array
+                    // {
+                    //     category: {
+                    //         [Op.any]: {
+                    //             [Op.iLike]: `%${searchTerm}%`,
+                    //         },
+                    //     },
+                    // },
                 ],
             };
         }
 
+        // Category filter handling
         if (category) {
-            where = { ...where, category };
+            where = {
+                ...where,
+                category: {
+                    [Op.contains]: Array.isArray(category) ? category : [category],
+                },
+            };
         }
 
+        // Price range handling
         if (minPrice !== undefined || maxPrice !== undefined) {
             where = { ...where, price: {} };
             if (minPrice !== undefined) where = { ...where, price: { [Op.gte]: minPrice } };
             if (maxPrice !== undefined) where = { ...where, price: { [Op.lte]: maxPrice } };
         }
 
+        // Owner filter
         if (ownerId) {
             where = { ...where, ownerId };
         }
@@ -166,6 +189,7 @@ export default class PropertyService {
                     attributes: ['overallRating', 'numberOfInvestors', 'ratingCount', 'visitCount'],
                 },
             ],
+            distinct: true, // Ensure correct count when using includes
         });
 
         if (paginate && properties.length > 0) {
