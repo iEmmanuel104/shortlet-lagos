@@ -68,6 +68,7 @@ export default class BlogController {
             content,
             authorId: req.user.id,
             tags,
+            status: BlogStatus.Published,
             media: {
                 images,
                 videos,
