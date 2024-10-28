@@ -115,12 +115,17 @@ export default class User extends Model<User | IUser> {
     })
         username: string;
 
-    @Column({ type: DataType.JSONB, allowNull: false, defaultValue: { activated: false, emailVerified: false } })
+    @Column({
+        type: DataType.JSONB,
+        allowNull: false,
+        defaultValue: { activated: false, emailVerified: false, walletVerified: false, docsVerified: false },
+    })
         status: {
-        activated: boolean;
-        emailVerified: boolean;
-        walletVerified: boolean;
-    };
+            activated: boolean;
+            emailVerified: boolean;
+            walletVerified: boolean;
+            docsVerified: boolean;
+        };
 
     @Column({
         type: DataType.VIRTUAL,
@@ -247,6 +252,7 @@ export interface IUser {
     username: string;
     status: {
         activated: boolean;
+        docsVerified: boolean;
         emailVerified: boolean;
         walletVerified: boolean;
     };
