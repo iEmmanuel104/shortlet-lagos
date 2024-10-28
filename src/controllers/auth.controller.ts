@@ -31,6 +31,7 @@ export default class AuthController {
             status: {
                 activated: true,
                 emailVerified: false,
+                docsVerified: false,
                 walletVerified: true,
             },
             type,
