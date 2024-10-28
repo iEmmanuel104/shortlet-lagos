@@ -200,7 +200,7 @@ export default class User extends Model<User | IUser> {
     @HasMany(() => Referral)
         referred: Referral[];
 
-    @HasMany(() => VerificationDoc)
+    @HasOne(() => VerificationDoc)
         verificationDoc: VerificationDoc[];
 
     @HasMany(() => WithdrawalRequest)
