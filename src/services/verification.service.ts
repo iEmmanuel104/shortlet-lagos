@@ -35,6 +35,10 @@ export default class VerificationService {
         urls: string[],
         documentType: DocumentProofType,
     ): Promise<VerificationDoc> {
+        if (!urls || urls.length === 0) {
+            throw new BadRequestError('At least one document URL is required');
+        }
+
         let doc = await VerificationDoc.findOne({
             where: { userId },
             include: [{
@@ -44,72 +48,101 @@ export default class VerificationService {
         });
 
         if (!doc) {
-            // Create new verification document with empty sections
+            // Create new verification document with typed empty sections
+            const initialDocuments: VerificationDocuments = {
+                [DocumentSection.Identity]: [],
+                [DocumentSection.Address]: [],
+                [DocumentSection.Selfie]: [],
+            };
+
+            // Add the initial documents for the current section
+            const formattedDocs = await this.formatDocumentsForSection(section, documentType, urls);
+            initialDocuments[section] = formattedDocs;
+
             doc = await VerificationDoc.create({
                 userId,
                 status: VerificationStatus.Pending,
-                documents: {
-                    [DocumentSection.Identity]: [],
-                    [DocumentSection.Address]: [],
-                    [DocumentSection.Selfie]: [],
-                },
+                documents: initialDocuments,
             } as IVerificationDoc);
-        } else if (doc.status === VerificationStatus.Submitted) {
-            throw new BadRequestError('Cannot update documents after submission');
+        } else {
+            if (doc.status === VerificationStatus.Submitted) {
+                throw new BadRequestError('Cannot update documents after submission');
+            }
+
+            const documents = { ...doc.documents };
+
+            // Remove existing documents of the same type if any
+            if (documents[section]) {
+                documents[section] = documents[section].filter(
+                    doc => !doc.type.startsWith(documentType.split('_')[0])
+                );
+            }
+
+            // Add new documents
+            const newDocs = await this.formatDocumentsForSection(section, documentType, urls);
+            documents[section] = [...documents[section], ...newDocs];
+
+            // Reset document status to pending if it was previously rejected
+            if (doc.status === VerificationStatus.Rejected) {
+                doc.status = VerificationStatus.Pending;
+            }
+
+            await doc.update({ documents, status: doc.status });
         }
 
-        const documents = doc.documents;
+        return doc;
+    }
 
-        // Remove existing documents of the same type if any
-        if (documents[section]) {
-            documents[section] = documents[section].filter(
-                doc => doc.type !== documentType
-            );
-        }
+    private static async formatDocumentsForSection(
+        section: DocumentSection,
+        documentType: DocumentProofType,
+        urls: string[]
+    ): Promise<DocumentData[]> {
+        const documents: DocumentData[] = [];
 
-        // Add new documents based on section and type
         switch (section) {
         case DocumentSection.Identity:
             if (documentType.includes('passport')) {
-                documents[section].push({
-                    type: documentType,
-                    url: urls[0],
-                    status: VerificationStatus.Pending,
-                });
-            } else {
-                // Handle front and back documents
-                documents[section].push(
-                    {
-                        type: `${documentType} _front` as DocumentProofType,
+                if (urls[0]) {
+                    documents.push({
+                        type: DocumentProofType.PassportFront,
                         url: urls[0],
                         status: VerificationStatus.Pending,
-                    },
-                    {
-                        type: `${documentType} _back` as DocumentProofType,
+                    });
+                }
+            } else {
+                // Handle front document
+                if (urls[0]) {
+                    documents.push({
+                        type: documentType as DocumentProofType,
+                        url: urls[0],
+                        status: VerificationStatus.Pending,
+                    });
+                }
+                // Handle back document if provided
+                if (urls[1]) {
+                    documents.push({
+                        type: documentType as DocumentProofType,
                         url: urls[1],
                         status: VerificationStatus.Pending,
-                    }
-                );
+                    });
+                }
             }
             break;
 
         case DocumentSection.Address:
         case DocumentSection.Selfie:
-            documents[section].push({
-                type: documentType,
-                url: urls[0],
-                status: VerificationStatus.Pending,
-            });
+            if (urls[0]) {
+                documents.push({
+                    type: documentType,
+                    url: urls[0],
+                    status: VerificationStatus.Pending,
+                });
+            }
             break;
         }
 
-        // Reset document status to pending if it was previously rejected
-        if (doc.status === VerificationStatus.Rejected) {
-            doc.status = VerificationStatus.Pending;
-        }
-
-        await doc.update({ documents, status: doc.status });
-        return doc;
+        return documents;
     }
 
     static async submitForVerification(userId: string): Promise<VerificationDoc> {

@@ -13,19 +13,26 @@ export default class VerificationController {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const { section, documentType } = req.body;
 
-        if (!section || !documentType || !Object.values(DocumentSection).includes(section)) {
+        if (!section || !documentType) {
             throw new BadRequestError('Invalid section or document type');
         }
 
-        // Handle file uploads
-        const uploadedUrls = await VerificationController.handleFileUploads(files, section, documentType, user.id);
+        if (!files || Object.keys(files).length === 0) {
+            throw new BadRequestError('At least one file is required');
+        }
+
+        // Handle all uploaded files in a single request
+        const uploadedUrls = await VerificationController.handleFileUploads(
+            files,
+            user.id
+        );
 
         // Add or update verification docs
         const doc = await VerificationService.addOrUpdateVerificationDoc(
             user.id,
             section,
             uploadedUrls,
-                documentType as DocumentProofType
+            documentType as DocumentProofType
         );
 
         res.status(200).json({
@@ -33,57 +40,51 @@ export default class VerificationController {
             message: 'Documents uploaded successfully',
             data: doc,
         });
-
     }
 
     private static async handleFileUploads(
         files: { [fieldname: string]: Express.Multer.File[] },
-        section: DocumentSection,
-        documentType: DocumentProofType,
         userId: string
     ): Promise<string[]> {
-        if (!files || Object.keys(files).length === 0) {
-            throw new BadRequestError('No files provided');
+        const uploadedUrls: string[] = [];
+        const uploadPromises = [];
+
+        // Handle front identity document
+        if (files.front?.[0]) {
+            uploadPromises.push(
+                this.uploadFile(files.front[0], userId, 'identity_front')
+                    .then(url => uploadedUrls.push(url))
+            );
         }
 
-        const uploadPromises: Promise<string>[] = [];
-
-        // Handle different document types
-        switch (section) {
-        case DocumentSection.Identity:
-            if (documentType.includes('passport')) {
-                if (!files.front?.[0]) {
-                    throw new BadRequestError('Passport image is required');
-                }
-                uploadPromises.push(this.uploadFile(files.front[0], userId, 'identity_passport'));
-            } else {
-                if (!files.front?.[0] || !files.back?.[0]) {
-                    throw new BadRequestError('Both front and back images are required');
-                }
-                uploadPromises.push(this.uploadFile(files.front[0], userId, 'identity_front'));
-                uploadPromises.push(this.uploadFile(files.back[0], userId, 'identity_back'));
-            }
-            break;
-
-        case DocumentSection.Address:
-            if (!files.document?.[0]) {
-                throw new BadRequestError('Address document is required');
-            }
-            uploadPromises.push(this.uploadFile(files.document[0], userId, 'address'));
-            break;
-
-        case DocumentSection.Selfie:
-            if (!files.selfie?.[0]) {
-                throw new BadRequestError('Selfie image is required');
-            }
-            uploadPromises.push(this.uploadFile(files.selfie[0], userId, 'selfie'));
-            break;
-
-        default:
-            throw new BadRequestError('Invalid document section');
+        // Handle back identity document
+        if (files.back?.[0]) {
+            uploadPromises.push(
+                this.uploadFile(files.back[0], userId, 'identity_back')
+                    .then(url => uploadedUrls.push(url))
+            );
         }
 
-        return Promise.all(uploadPromises);
+        // Handle address document
+        if (files.document?.[0]) {
+            uploadPromises.push(
+                this.uploadFile(files.document[0], userId, 'address')
+                    .then(url => uploadedUrls.push(url))
+            );
+        }
+
+        // Handle selfie
+        if (files.selfie?.[0]) {
+            uploadPromises.push(
+                this.uploadFile(files.selfie[0], userId, 'selfie')
+                    .then(url => uploadedUrls.push(url))
+            );
+        }
+
+        // Wait for all uploads to complete
+        await Promise.all(uploadPromises);
+
+        return uploadedUrls;
     }
 
     private static async uploadFile(
