@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import PropertyService, { IViewPropertiesQuery } from '../services/property.service';
+import PropertyService, { IViewPropertiesQuery, TimePeriod } from '../services/property.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { BadRequestError } from '../utils/customErrors';
 import { IProperty } from '../models/property.model';
@@ -304,7 +304,24 @@ export default class PropertyController {
             throw new BadRequestError('User is not a property owner');
         }
 
-        const stats = await PropertyService.getPropertyOwnerStats(user.id);
+        // Get query parameters with type checking
+        const includeTimeSeries = req.query.includeTimeSeries === 'true';
+        const period = req.query.period as string;
+
+        // Validate period if provided
+        let validatedPeriod: TimePeriod | undefined;
+        if (period) {
+            if (!Object.values(TimePeriod).includes(period as TimePeriod)) {
+                throw new BadRequestError('Invalid period. Must be one of: day, week, month');
+            }
+            validatedPeriod = period as TimePeriod;
+        }
+
+        const stats = await PropertyService.getPropertyOwnerStats(
+            user.id,
+            includeTimeSeries,
+            validatedPeriod
+        );
 
         res.status(200).json({
             status: 'success',
