@@ -1,4 +1,5 @@
-import { Transaction, Op, Includeable } from 'sequelize';
+/* eslint-disable no-unused-vars */
+import { Transaction, Op, Includeable, col, fn, literal } from 'sequelize';
 import Property, { IProperty } from '../models/property.model';
 import User from '../models/user.model';
 import Investment, { InvestmentStatus } from '../models/investment.model';
@@ -36,6 +37,30 @@ interface IPropertyOwnerStats {
         newInvestors: number;
         newInvestments: number;
     };
+}
+
+export enum TimePeriod {
+    DAY = 'day',
+    WEEK = 'week',
+    MONTH = 'month'
+}
+
+// Stats data point interface
+interface TimeBasedStats {
+    period: string;
+    investmentAmount: number;
+    investorCount: number;
+}
+
+// Time series data interface
+interface TimeSeriesData {
+    period: TimePeriod;
+    data: TimeBasedStats[];
+}
+
+// Extended stats interface
+export interface IPropertyOwnerStatsWithTimeSeries extends IPropertyOwnerStats {
+    timeSeriesData?: TimeSeriesData;
 }
 
 export default class PropertyService {
@@ -198,7 +223,32 @@ export default class PropertyService {
         } else return { properties };
     }
 
-    static async getPropertyOwnerStats(ownerId: string): Promise<IPropertyOwnerStats> {
+    static async getPropertyOwnerStats(
+        ownerId: string,
+        includeTimeSeries: boolean = false,
+        period?: TimePeriod
+    ): Promise<IPropertyOwnerStatsWithTimeSeries> {
+        // Get basic stats first
+        const baseStats = await this.getBasicPropertyOwnerStats(ownerId);
+
+        if (!includeTimeSeries || !period) {
+            return baseStats;
+        }
+
+        // Get time series data if requested
+        const timeSeriesStats = await this.getTimeSeriesStats(ownerId, period);
+
+        return {
+            ...baseStats,
+            timeSeriesData: {
+                period,
+                data: timeSeriesStats,
+            },
+        };
+    }
+
+    private static async getBasicPropertyOwnerStats(ownerId: string): Promise<IPropertyOwnerStats> {
+
         // Get all properties by owner
         const properties = await Property.findAll({
             where: { ownerId },
@@ -301,6 +351,67 @@ export default class PropertyService {
         };
     }
 
+    private static async getTimeSeriesStats(
+        ownerId: string,
+        period: TimePeriod
+    ): Promise<TimeBasedStats[]> {
+        // Get all properties for this owner
+        const properties = await Property.findAll({
+            attributes: ['id'],
+            where: { ownerId },
+            raw: true,
+        });
+
+        const propertyIds = properties.map(p => p.id);
+
+        if (propertyIds.length === 0) {
+            return [];
+        }
+
+        // PostgreSQL date truncation format
+        const truncFormat = period === TimePeriod.DAY ? 'YYYY-MM-DD' :
+            period === TimePeriod.WEEK ? 'IYYY-IW' : 'YYYY-MM';
+
+        // Calculate the start date based on period
+        const startDate = new Date();
+        switch (period) {
+        case TimePeriod.DAY:
+            startDate.setDate(startDate.getDate() - 30); // Last 30 days
+            break;
+        case TimePeriod.WEEK:
+            startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
+            break;
+        case TimePeriod.MONTH:
+            startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
+            break;
+        }
+
+        const stats = await Investment.findAll({
+            attributes: [
+                [fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat), 'period'],
+                [fn('SUM', col('amount')), 'investmentAmount'],
+                [fn('COUNT', literal('DISTINCT "investorId"')), 'investorCount'],
+            ],
+            where: {
+                propertyId: {
+                    [Op.in]: propertyIds,
+                },
+                createdAt: {
+                    [Op.gte]: startDate,
+                },
+            },
+            group: [fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat)],
+            order: [[fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat), 'ASC']],
+            raw: true,
+        }) as unknown as Array<{ period: string; investmentAmount: string; investorCount: string }>;
+
+        return stats.map(stat => ({
+            period: period === TimePeriod.WEEK ? `Week ${stat.period.split('-')[1]}` : stat.period,
+            investmentAmount: Number(stat.investmentAmount),
+            investorCount: Number(stat.investorCount),
+        }));
+    }
+
     static async updatePropertyTokenomics(propertyId: string, tokenomicsData: ITokenomics): Promise<Property> {
         await this.validateTokenomicsData(tokenomicsData);
 
@@ -354,7 +465,6 @@ export default class PropertyService {
 
         return updatedProperty;
     }
-
 
     static async validatePropertyData(data: Partial<IProperty>): Promise<Partial<IProperty>> {
         const { category, name, description, location, metrics, listingPeriod } = data;
