@@ -21,6 +21,7 @@ router
     .patch('/:id', basicAuth(), upload, AuthenticatedController(PropertyController.updateProperty))
     .patch('/:id/tokenomics', basicAuth(), AuthenticatedController(PropertyController.updatePropertyTokenomics))
     .get('/owner/stats', basicAuth(), AuthenticatedController(PropertyController.getOwnerStats))
+    .get('/owner/top-investment', basicAuth(), AuthenticatedController(PropertyController.getTopPropertyInvestment))
     .delete('/:id', basicAuth(), AuthenticatedController(PropertyController.deleteProperty));
 
 export default router;
