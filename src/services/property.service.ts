@@ -63,6 +63,24 @@ export interface IPropertyOwnerStatsWithTimeSeries extends IPropertyOwnerStats {
     timeSeriesData?: TimeSeriesData;
 }
 
+export interface ITopPropertyInvestment {
+    id: string;
+    name: string;
+    location: string;
+    banner: string;
+    metrics: {
+        MIA: number; // Minimum Investment Amount
+    };
+    stats: {
+        totalInvestmentAmount: number;
+        numberOfInvestors: number;
+    };
+    investmentTrend: {
+        period: string;
+        amount: number;
+    }[];
+}
+
 export default class PropertyService {
     static async addProperty(propertyData: IProperty, transaction?: Transaction): Promise<Property> {
         const newProperty = await Property.create({ ...propertyData }, { transaction });
@@ -551,5 +569,56 @@ export default class PropertyService {
                 throw new BadRequestError(`Distribution ${key} percentage cannot be negative`);
             }
         });
+    }
+
+    static async getTopPropertyInvestment(ownerId: string): Promise<ITopPropertyInvestment | null> {
+        // Find the property with the highest total investment amount
+        const topProperty = await Property.findOne({
+            where: {
+                ownerId,
+                isDraft: false,
+            },
+            include: [
+                {
+                    model: PropertyStats,
+                    as: 'stats',
+                    attributes: ['totalInvestmentAmount', 'numberOfInvestors'],
+                },
+                {
+                    model: Investment,
+                    attributes: ['amount', 'createdAt'],
+                    limit: 15, // Get last 15 investments for trend
+                    order: [['createdAt', 'DESC']],
+                },
+            ],
+            order: [[{ model: PropertyStats, as: 'stats' }, 'totalInvestmentAmount', 'DESC']],
+        });
+
+        if (!topProperty) {
+            return null;
+        }
+
+        // Process investments to create trend data
+        const trendData = topProperty.investments
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .map(investment => ({
+                period: new Date(investment.createdAt).toISOString().split('T')[0],
+                amount: Number(investment.amount),
+            }));
+
+        return {
+            id: topProperty.id,
+            name: topProperty.name,
+            location: topProperty.location,
+            banner: topProperty.banner || '',
+            metrics: {
+                MIA: topProperty.metrics.MIA,
+            },
+            stats: {
+                totalInvestmentAmount: Number(topProperty.stats?.totalInvestmentAmount || 0),
+                numberOfInvestors: topProperty.stats?.numberOfInvestors || 0,
+            },
+            investmentTrend: trendData,
+        };
     }
 }
