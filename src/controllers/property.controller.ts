@@ -329,4 +329,21 @@ export default class PropertyController {
             data: stats,
         });
     }
+
+    static async getTopPropertyInvestment(req: AuthenticatedRequest, res: Response) {
+        // Verify user exists and is a property owner
+        const user = req.user;
+
+        if (user.type !== UserType.PROJECT_OWNER) {
+            throw new BadRequestError('User is not a property owner');
+        }
+
+        const topProperty = await PropertyService.getTopPropertyInvestment(user.id);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Top property investment retrieved successfully',
+            data: topProperty,
+        });
+    }
 }
