@@ -125,9 +125,13 @@ export default class PropertyService {
         if (category) {
             where = {
                 ...where,
-                category: {
-                    [Op.contains]: Array.isArray(category) ? category : [category],
-                },
+                [Op.or]: [
+                    // Check if the category exists in any position in the array
+                    literal(`EXISTS (
+                    SELECT 1 FROM unnest(category) cat 
+                    WHERE LOWER(cat) = LOWER('${category}')
+                )`),
+                ],
             };
         }
 
