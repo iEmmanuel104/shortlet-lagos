@@ -277,7 +277,7 @@ export default class PropertyService {
                 },
                 {
                     model: Investment,
-                    attributes: ['id', 'amount', 'status', 'createdAt', 'investorId'],
+                    attributes: ['id', 'amount', 'status', 'date', 'investorId'],
                     include: [
                         {
                             model: User,
@@ -318,18 +318,18 @@ export default class PropertyService {
                 // Count investments by status
                 if (investment.status === InvestmentStatus.Finish) {
                     completedInvestments++;
-                    if (new Date(investment.createdAt) > oneMonthAgo) {
+                    if (new Date(investment.date) > oneMonthAgo) {
                         lastMonthCompletedInvestments++;
                     }
                 } else {
                     pendingInvestments++;
-                    if (new Date(investment.createdAt) > oneMonthAgo) {
+                    if (new Date(investment.date) > oneMonthAgo) {
                         lastMonthPendingInvestments++;
                     }
                 }
 
                 // Count new investments and investors in last month
-                if (new Date(investment.createdAt) > oneMonthAgo) {
+                if (new Date(investment.date) > oneMonthAgo) {
                     newInvestmentsLastMonth++;
                     if (property.stats?.numberOfInvestors) {
                         newInvestorsLastMonth++;
@@ -406,7 +406,7 @@ export default class PropertyService {
 
         const stats = await Investment.findAll({
             attributes: [
-                [fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat), 'period'],
+                [fn('to_char', fn('date_trunc', period, col('date')), truncFormat), 'period'],
                 [fn('SUM', col('amount')), 'investmentAmount'],
                 [fn('COUNT', literal('DISTINCT "investorId"')), 'investorCount'],
             ],
@@ -414,12 +414,12 @@ export default class PropertyService {
                 propertyId: {
                     [Op.in]: propertyIds,
                 },
-                createdAt: {
+                date: {
                     [Op.gte]: startDate,
                 },
             },
-            group: [fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat)],
-            order: [[fn('to_char', fn('date_trunc', period, col('createdAt')), truncFormat), 'ASC']],
+            group: [fn('to_char', fn('date_trunc', period, col('date')), truncFormat)],
+            order: [[fn('to_char', fn('date_trunc', period, col('date')), truncFormat), 'ASC']],
             raw: true,
         }) as unknown as Array<{ period: string; investmentAmount: string; investorCount: string }>;
 
@@ -586,9 +586,9 @@ export default class PropertyService {
                 },
                 {
                     model: Investment,
-                    attributes: ['amount', 'createdAt'],
+                    attributes: ['amount', 'date'],
                     limit: 15, // Get last 15 investments for trend
-                    order: [['createdAt', 'DESC']],
+                    order: [['date', 'DESC']],
                 },
             ],
             order: [[{ model: PropertyStats, as: 'stats' }, 'totalInvestmentAmount', 'DESC']],
@@ -600,9 +600,9 @@ export default class PropertyService {
 
         // Process investments to create trend data
         const trendData = topProperty.investments
-            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .map(investment => ({
-                period: new Date(investment.createdAt).toISOString().split('T')[0],
+                period: new Date(investment.date).toISOString().split('T')[0],
                 amount: Number(investment.amount),
             }));
 
