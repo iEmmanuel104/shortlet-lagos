@@ -6,6 +6,7 @@ import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats from '../models/propertyStats.model';
 import { IInvestorStats, MetricsPeriod, IInvestmentMetrics, ITopInvestment } from '../utils/interface';
+import Tokenomics from '../models/tokenomics.model';
 
 export interface IViewInvestmentsQuery {
     page?: number;
@@ -136,7 +137,10 @@ export default class InvestmentService {
             where: { investorId },
             include: [{
                 model: Property,
-                include: [{ model: PropertyStats }],
+                include: [
+                    { model: PropertyStats },
+                    { model: Tokenomics },
+                ],
             }],
         });
 
@@ -157,15 +161,20 @@ export default class InvestmentService {
 
             // Calculate current value based on property stats and share ratio
             const propertyStats = investment.property?.stats;
+            const tokenomics = investment.property?.tokenomics;
+
             if (propertyStats) {
-                const shareRatio = investment.sharesAssigned / investment.property.tokenomics.totalTokenSupply;
+                // Safe calculation of share ratio with fallback
+                const totalTokenSupply = tokenomics?.totalTokenSupply || investment.property?.metrics?.TIG || 1;
+                const shareRatio = investment.sharesAssigned / totalTokenSupply;
+
                 const currentPropertyValue = propertyStats.totalEstimatedReturns;
                 const investmentValue = currentPropertyValue * shareRatio;
                 currentValue += investmentValue;
 
                 // Track property values
                 totalPropertyValue += currentPropertyValue;
-                initialPropertyValue += investment.property.metrics.TIG * shareRatio;
+                initialPropertyValue += (investment.property?.metrics?.TIG || 0) * shareRatio;
             }
 
             // Track investment status
@@ -177,22 +186,32 @@ export default class InvestmentService {
                 processingAmount += amount;
             }
 
-            // Calculate rental income (this would need to be implemented based on your rental tracking system)
-            // This is a placeholder calculation
-            const monthsSinceInvestment = Math.floor((new Date().getTime() - new Date(investment.date).getTime()) / (1000 * 60 * 60 * 24 * 30));
-            const monthlyRent = (investment.estimatedReturns - amount) / 12; // Simplified calculation
-            totalRentEarned += monthlyRent * monthsSinceInvestment;
-            pendingRent += monthlyRent; // Current month's pending rent
+            // Calculate rental income with safe checks
+            const investmentDate = new Date(investment.date);
+            const monthsSinceInvestment = Math.floor(
+                (new Date().getTime() - investmentDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+            );
+            const monthlyRent = (investment.estimatedReturns - amount) / 12;
+
+            if (!isNaN(monthlyRent) && monthsSinceInvestment > 0) {
+                totalRentEarned += monthlyRent * monthsSinceInvestment;
+                pendingRent += monthlyRent;
+            }
         });
 
+        // Safe calculation of value changes with zero checks
         const valueChange = {
             amount: currentValue - totalInvestedAmount,
-            percentage: ((currentValue - totalInvestedAmount) / totalInvestedAmount) * 100,
+            percentage: totalInvestedAmount > 0
+                ? ((currentValue - totalInvestedAmount) / totalInvestedAmount) * 100
+                : 0,
         };
 
         const propertyValueChange = {
             amount: totalPropertyValue - initialPropertyValue,
-            percentage: ((totalPropertyValue - initialPropertyValue) / initialPropertyValue) * 100,
+            percentage: initialPropertyValue > 0
+                ? ((totalPropertyValue - initialPropertyValue) / initialPropertyValue) * 100
+                : 0,
         };
 
         return {
@@ -284,29 +303,36 @@ export default class InvestmentService {
             where: { investorId },
             include: [{
                 model: Property,
-                include: [{ model: PropertyStats }],
+                include: [
+                    { model: PropertyStats },
+                    { model: Tokenomics },
+                ],
             }],
             order: [['amount', 'DESC']],
             limit,
         });
 
         return investments.map(investment => {
-            const shareRatio = investment.sharesAssigned / investment.property.tokenomics.totalTokenSupply;
+            const tokenomics = investment.property?.tokenomics;
+            const totalTokenSupply = tokenomics?.totalTokenSupply || investment.property?.metrics?.TIG || 1;
+            const shareRatio = investment.sharesAssigned / totalTokenSupply;
+
             const initialValue = Number(investment.amount);
-            const currentValue = investment.property.stats.totalEstimatedReturns * shareRatio;
+            const currentValue = (investment.property?.stats?.totalEstimatedReturns || 0) * shareRatio;
+
             const valueChange = {
                 amount: currentValue - initialValue,
-                percentage: ((currentValue - initialValue) / initialValue) * 100,
+                percentage: initialValue > 0 ? ((currentValue - initialValue) / initialValue) * 100 : 0,
             };
 
             return {
                 propertyId: investment.propertyId,
-                propertyName: investment.property.name,
-                location: investment.property.location,
+                propertyName: investment.property?.name || 'Unknown Property',
+                location: investment.property?.location || 'Unknown Location',
                 investedAmount: initialValue,
                 currentValue,
                 valueChange,
-                rentalYield: investment.property.stats.yield,
+                rentalYield: investment.property?.stats?.yield || 0,
                 investmentDate: investment.date,
             };
         });
