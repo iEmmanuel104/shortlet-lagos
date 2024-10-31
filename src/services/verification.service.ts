@@ -148,6 +148,11 @@ export default class VerificationService {
     static async submitForVerification(userId: string): Promise<VerificationDoc> {
         const doc = await this.viewUserVerificationDoc(userId);
 
+
+        if (!doc) {
+            throw new NotFoundError('Verification document not found');
+        }
+
         if (doc.status === VerificationStatus.Submitted) {
             throw new BadRequestError('Documents are already submitted for verification');
         }
@@ -235,6 +240,11 @@ export default class VerificationService {
         rejectionReason?: string
     ): Promise<VerificationDoc> {
         const doc = await this.viewUserVerificationDoc(userId);
+
+        if (!doc) {
+            throw new NotFoundError('Verification document not found');
+        }
+
         const documents = doc.documents;
         const sectionDocs = documents[section];
 
@@ -310,7 +320,7 @@ export default class VerificationService {
         return { docs };
     }
 
-    static async viewUserVerificationDoc(userId: string): Promise<VerificationDoc> {
+    static async viewUserVerificationDoc(userId: string): Promise<VerificationDoc | null> {
         const include: Includeable[] = [
             {
                 model: User,
@@ -322,10 +332,6 @@ export default class VerificationService {
             where: { userId },
             include,
         });
-
-        if (!doc) {
-            throw new NotFoundError('Verification document not found');
-        }
 
         return doc;
     }
