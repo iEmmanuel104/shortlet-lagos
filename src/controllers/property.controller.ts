@@ -10,15 +10,19 @@ import { TimePeriod } from '../utils/interface';
 
 export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
-        const { page, size, q, category, minPrice, maxPrice, ownerId } = req.query;
+        const { page, size, q, category, minPrice, maxPrice, ownerId, rentalYield, estimatedReturn, isDraft } = req.query;
 
         const queryParams: IViewPropertiesQuery = {
-            ...(page && size ? { page: Number(page), size: Number(size) } : {}),
-            ...(q && { q: q as string }),
-            ...(category && { category: category as string }),
+            ...(page && { page: Number(page) }),
+            ...(size && { size: Number(size) }),
+            ...(q && { q: String(q) }),
+            ...(category && { category: String(category) }),
             ...(minPrice && { minPrice: Number(minPrice) }),
             ...(maxPrice && { maxPrice: Number(maxPrice) }),
-            ...(ownerId && { ownerId: ownerId as string }),
+            ...(ownerId && { ownerId: String(ownerId) }),
+            ...(rentalYield && { rentalYield: Number(rentalYield) }),
+            ...(estimatedReturn && { estimatedReturn: Number(estimatedReturn) }),
+            ...(isDraft && { isDraft: Boolean(isDraft) }),
         };
 
         const properties = await PropertyService.viewProperties(queryParams);

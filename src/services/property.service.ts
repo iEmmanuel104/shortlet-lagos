@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { Transaction, Op, Includeable, col, fn, literal } from 'sequelize';
 import Property, { IProperty } from '../models/property.model';
 import User from '../models/user.model';
@@ -17,6 +16,9 @@ export interface IViewPropertiesQuery {
     minPrice?: number;
     maxPrice?: number;
     ownerId?: string;
+    rentalYield?: number;
+    estimatedReturn?: number;
+    isDraft?: boolean;
 }
 
 export default class PropertyService {
@@ -96,7 +98,7 @@ export default class PropertyService {
     static async viewProperties(queryData?: IViewPropertiesQuery): Promise<{ properties: Property[], count?: number, totalPages?: number }> {
         let conditions: Record<string, unknown> = {};
         let paginate = false;
-        const { page, size, q: query, category, minPrice, maxPrice, ownerId } = queryData as IViewPropertiesQuery;
+        const { page, size, q: query, category, minPrice, maxPrice, ownerId, isDraft, rentalYield, estimatedReturn } = queryData as IViewPropertiesQuery;
 
         if (page && size && page > 0 && size > 0) {
             const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
@@ -105,6 +107,7 @@ export default class PropertyService {
         }
 
         let where = {};
+        let statsWhere = {};
 
         // Enhanced search query handling
         if (query !== undefined && query !== '') {
@@ -114,20 +117,6 @@ export default class PropertyService {
                     { name: { [Op.iLike]: `%${searchTerm}%` } },
                     { description: { [Op.iLike]: `%${searchTerm}%` } },
                     { location: { [Op.iLike]: `%${searchTerm}%` } },
-                    // // Search within category array
-                    // {
-                    //     category: {
-                    //         [Op.overlap]: [searchTerm],
-                    //     },
-                    // },
-                    // // Search for partial matches in category array
-                    // {
-                    //     category: {
-                    //         [Op.any]: {
-                    //             [Op.iLike]: `%${searchTerm}%`,
-                    //         },
-                    //     },
-                    // },
                 ],
             };
         }
@@ -142,6 +131,11 @@ export default class PropertyService {
             };
         }
 
+        // handle isDraft filter
+        if (isDraft !== undefined) {
+            where = { ...where, isDraft };
+        }
+
         // Price range handling
         if (minPrice !== undefined || maxPrice !== undefined) {
             where = { ...where, price: {} };
@@ -152,6 +146,21 @@ export default class PropertyService {
         // Owner filter
         if (ownerId) {
             where = { ...where, ownerId };
+        }
+
+        // PropertyStats filters
+        if (rentalYield !== undefined) {
+            statsWhere = {
+                ...statsWhere,
+                yield: { [Op.gte]: rentalYield },
+            };
+        }
+
+        if (estimatedReturn !== undefined) {
+            statsWhere = {
+                ...statsWhere,
+                totalEstimatedReturns: { [Op.gte]: estimatedReturn },
+            };
         }
 
         const { rows: properties, count }: { rows: Property[], count: number } = await Property.findAndCountAll({
@@ -168,6 +177,7 @@ export default class PropertyService {
                     model: PropertyStats,
                     as: 'stats',
                     attributes: ['overallRating', 'numberOfInvestors', 'ratingCount', 'visitCount'],
+                    where: Object.keys(statsWhere).length > 0 ? statsWhere : undefined,
                 },
             ],
             distinct: true, // Ensure correct count when using includes
