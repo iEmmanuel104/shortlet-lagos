@@ -7,6 +7,7 @@ import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
 import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
+import { IPropertyOwnerStats, IPropertyOwnerStatsWithTimeSeries, ITopPropertyInvestment, TimeBasedStats, TimePeriod } from '../utils/interface';
 
 export interface IViewPropertiesQuery {
     page?: number;
@@ -16,69 +17,6 @@ export interface IViewPropertiesQuery {
     minPrice?: number;
     maxPrice?: number;
     ownerId?: string;
-}
-
-interface IPropertyOwnerStats {
-    totalListings: number;
-    activeListings: number;
-    totalInvestmentAmount: number;
-    totalInvestorsCount: number;
-    investments: {
-        completed: {
-            count: number;
-            percentageChange: number;
-        };
-        pending: {
-            count: number;
-            percentageChange: number;
-        };
-    };
-    recentActivity: {
-        newInvestors: number;
-        newInvestments: number;
-    };
-}
-
-export enum TimePeriod {
-    DAY = 'day',
-    WEEK = 'week',
-    MONTH = 'month'
-}
-
-// Stats data point interface
-interface TimeBasedStats {
-    period: string;
-    investmentAmount: number;
-    investorCount: number;
-}
-
-// Time series data interface
-interface TimeSeriesData {
-    period: TimePeriod;
-    data: TimeBasedStats[];
-}
-
-// Extended stats interface
-export interface IPropertyOwnerStatsWithTimeSeries extends IPropertyOwnerStats {
-    timeSeriesData?: TimeSeriesData;
-}
-
-export interface ITopPropertyInvestment {
-    id: string;
-    name: string;
-    location: string;
-    banner: string;
-    metrics: {
-        MIA: number; // Minimum Investment Amount
-    };
-    stats: {
-        totalInvestmentAmount: number;
-        numberOfInvestors: number;
-    };
-    investmentTrend: {
-        period: string;
-        amount: number;
-    }[];
 }
 
 export default class PropertyService {
