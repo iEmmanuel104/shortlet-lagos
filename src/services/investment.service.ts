@@ -254,7 +254,7 @@ export default class InvestmentService {
                 [fn('to_char', fn('date_trunc', period, col('date')), truncFormat), 'period'],
                 [fn('SUM', col('amount')), 'investedAmount'],
                 [fn('SUM', col('estimatedReturns')), 'propertyValue'],
-                [literal('SUM(estimated_returns - amount) / 12'), 'rentalIncome'],
+                [literal('SUM("estimatedReturns" - "amount") / 12'), 'rentalIncome'], // Fixed column reference
             ],
             where: {
                 investorId,
@@ -263,13 +263,19 @@ export default class InvestmentService {
             group: [fn('to_char', fn('date_trunc', period, col('date')), truncFormat)],
             order: [[fn('to_char', fn('date_trunc', period, col('date')), truncFormat), 'ASC']],
             raw: true,
-        }) as unknown as IInvestmentMetrics[];
+        }) as unknown as Array<{
+            period: string;
+            investedAmount: string;
+            propertyValue: string;
+            rentalIncome: string;
+        }>;
 
+        // Process and format the results
         return metrics.map(metric => ({
             period: period === MetricsPeriod.WEEK ? `Week ${metric.period.split('-')[1]}` : metric.period,
-            investedAmount: Number(metric.investedAmount),
-            propertyValue: Number(metric.propertyValue),
-            rentalIncome: Number(metric.rentalIncome),
+            investedAmount: Number(metric.investedAmount) || 0,
+            propertyValue: Number(metric.propertyValue) || 0,
+            rentalIncome: Number(metric.rentalIncome) || 0,
         }));
     }
 
