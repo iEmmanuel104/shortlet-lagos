@@ -4,6 +4,7 @@ import InvestmentService, { IViewInvestmentsQuery } from '../services/investment
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { BadRequestError } from '../utils/customErrors';
 import { IInvestment, InvestmentStatus } from '../models/investment.model';
+import { MetricsPeriod } from '../utils/interface';
 
 export default class InvestmentController {
     static async getAllInvestments(req: Request, res: Response) {
@@ -83,6 +84,43 @@ export default class InvestmentController {
             status: 'success',
             message: 'Investment deleted successfully',
             data: null,
+        });
+    }
+
+    static async getInvestorStats(req: AuthenticatedRequest, res: Response) {
+        const investorId = req.user.id;
+        const stats = await InvestmentService.getInvestorStats(investorId);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Investor stats retrieved successfully',
+            data: stats,
+        });
+    }
+
+    static async getInvestmentMetrics(req: AuthenticatedRequest, res: Response) {
+        const investorId = req.user.id;
+        const period = req.query.period as MetricsPeriod || MetricsPeriod.MONTH;
+
+        const metrics = await InvestmentService.getInvestmentMetrics(investorId, period);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Investment metrics retrieved successfully',
+            data: metrics,
+        });
+    }
+
+    static async getTopInvestments(req: AuthenticatedRequest, res: Response) {
+        const investorId = req.user.id;
+        const limit = Number(req.query.limit) || 5;
+
+        const topInvestments = await InvestmentService.getTopInvestments(investorId, limit);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Top investments retrieved successfully',
+            data: topInvestments,
         });
     }
 }
