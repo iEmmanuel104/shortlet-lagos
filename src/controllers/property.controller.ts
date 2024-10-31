@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import PropertyService, { IViewPropertiesQuery, TimePeriod } from '../services/property.service';
+import PropertyService, { IViewPropertiesQuery } from '../services/property.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { BadRequestError } from '../utils/customErrors';
 import { IProperty } from '../models/property.model';
 import { UserType } from '../models/user.model';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
 import { ITokenomics } from '../models/tokenomics.model';
+import { TimePeriod } from '../utils/interface';
 
 export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
