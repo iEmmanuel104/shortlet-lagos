@@ -8,6 +8,7 @@ import reviewRoutes from './review.routes';
 import verificationRoutes from './verification.routes';
 import withdrawalRequestRoutes from './withdrawalRequest.routes';
 import blogRoutes from './blog.routes';
+import seederRoutes from './Admin/seeder.routes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/review', reviewRoutes);
 router.use('/blog', blogRoutes);
 router.use('/verification', verificationRoutes);
 router.use('/withdrawal-request', withdrawalRequestRoutes);
+router.use('/admin/seed', seederRoutes);  
 
 export default router;
