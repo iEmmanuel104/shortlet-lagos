@@ -9,6 +9,21 @@ router
     .get('/:id', InvestmentController.getInvestmentById)
     .post('/', basicAuth(), AuthenticatedController(InvestmentController.addInvestment))
     .patch('/:id', basicAuth(), AuthenticatedController(InvestmentController.updateInvestment))
-    .delete('/:id', AuthenticatedController(InvestmentController.deleteInvestment));
+    .delete('/:id', AuthenticatedController(InvestmentController.deleteInvestment))
+    .get(
+        '/analytics/investor-stats',
+        basicAuth(),
+        AuthenticatedController(InvestmentController.getInvestorStats)
+    )
+    .get(
+        '/analytics/metrics',
+        basicAuth(),
+        AuthenticatedController(InvestmentController.getInvestmentMetrics)
+    )
+    .get(
+        '/analytics/top-investments',
+        basicAuth(),
+        AuthenticatedController(InvestmentController.getTopInvestments)
+    );
 
 export default router;
