@@ -16,12 +16,12 @@ async function createSequelizeInstance(): Promise<Sequelize> {
                     min: 1,
                     idle: 10000,
                 },
-                dialectOptions: {
-                    ssl: {
-                        require: true,
-                        rejectUnauthorized: true,
-                    },
-                },
+                // dialectOptions: {
+                //     ssl: {
+                //         require: true,
+                //         rejectUnauthorized: true,
+                //     },
+                // },
             }
         );
     } else {
