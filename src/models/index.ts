@@ -2,42 +2,44 @@
 import { Sequelize } from 'sequelize-typescript';
 import { logger } from '../utils/logger';
 import { DB_CONFIG, NODE_ENV } from '../utils/constants';
+import { Dialect } from 'sequelize/types/sequelize';
 // import AwsClientConfig from '../clients/aws.config';
 
 // Function to create Sequelize instance with IAM auth token for production
 async function createSequelizeInstance(): Promise<Sequelize> {
+    const baseConfig = {
+        logging: false,
+        dialect: 'postgres' as Dialect,
+        pool: {
+            max: 5,
+            min: 1,
+            idle: 10000,
+        },
+    };
+
     if (NODE_ENV === 'production') {
-        return new Sequelize (
-            DB_CONFIG.URL, {
-                logging: false,
-                dialect: 'postgres',
-                pool: {
-                    max: 5,
-                    min: 1,
-                    idle: 10000,
+        return new Sequelize(DB_CONFIG.URL, {
+            ...baseConfig,
+            dialectOptions: {
+                ssl: {
+                    require: true,
+                    rejectUnauthorized: false, // This is the key change
                 },
-                // dialectOptions: {
-                //     ssl: {
-                //         require: true,
-                //         rejectUnauthorized: true,
-                //     },
-                // },
-            }
-        );
+                keepAlive: true,
+            },
+            pool: {
+                ...baseConfig.pool,
+                acquire: 60000, // Increase acquire timeout
+            },
+            retry: {
+                max: 5, // Add retry logic
+            },
+        });
     } else {
-        return new Sequelize(
-            DB_CONFIG.URL, {
-                logging: false,
-                dialect: 'postgres',
-                pool: {
-                    max: 5,
-                    min: 1,
-                    idle: 10000,
-                },
-            }
-        );
+        return new Sequelize(DB_CONFIG.URL, baseConfig);
     }
 }
+
 
 let Database: Sequelize;
 
