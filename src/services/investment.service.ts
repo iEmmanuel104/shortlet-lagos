@@ -94,7 +94,7 @@ export default class InvestmentService {
             include: [
                 {
                     model: Property,
-                    attributes: ['id', 'username', 'category', 'price'],
+                    attributes: ['id', 'name', 'category', 'price'],
                 },
                 {
                     model: User,
