@@ -28,21 +28,39 @@ export default class PropertyService {
         return newProperty;
     }
 
+    private static parseJSONField<T>(field: string | T | undefined, defaultValue: T): T {
+        if (typeof field === 'string') {
+            try {
+                return JSON.parse(field);
+            } catch (error) {
+                console.error('Error parsing field:', error);
+                return defaultValue;
+            }
+        }
+        return field || defaultValue;
+    }
+
     static async updateProperty(property: Property, dataToUpdate: Partial<IProperty>): Promise<Property> {
         const currentData = property.toJSON();
 
-        // Ensure arrays are properly handled
+        // Parse JSON strings for arrays if they exist
+        const parsedDataToUpdate = {
+            ...dataToUpdate,
+            // Use existing property arrays as default values since controller may have modified them
+            gallery: this.parseJSONField(dataToUpdate.gallery, property.gallery || []),
+            document: this.parseJSONField(dataToUpdate.document, property.document || []),
+            category: this.parseJSONField(dataToUpdate.category, currentData.category || []),
+        };
+
         const updatedData = {
             ...currentData,
-            ...dataToUpdate,
-            // Preserve arrays if they're not being updated
-            gallery: dataToUpdate.gallery || currentData.gallery || [],
-            document: dataToUpdate.document || currentData.document || [],
-            category: Array.isArray(dataToUpdate.category)
-                ? dataToUpdate.category
-                : typeof dataToUpdate.category === 'string'
-                    ? JSON.parse(dataToUpdate.category)
-                    : currentData.category || [],
+            ...parsedDataToUpdate,
+            // Guarantee arrays exist with proper fallbacks
+            gallery: parsedDataToUpdate.gallery || [],
+            document: parsedDataToUpdate.document || [],
+            category: parsedDataToUpdate.category || [],
+            // Preserve banner if it exists in the update
+            ...(dataToUpdate.banner && { banner: dataToUpdate.banner }),
         };
 
         // Update the property with the processed data

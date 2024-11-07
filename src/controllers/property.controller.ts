@@ -168,8 +168,6 @@ export default class PropertyController {
             });
         }
 
-        console.log({ validatedData });
-
         // Update property with merged data
         const updatedProperty = await PropertyService.updateProperty(property, validatedData);
 
