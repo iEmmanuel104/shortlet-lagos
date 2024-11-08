@@ -1,8 +1,16 @@
+/* eslint-disable no-unused-vars */
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, IsUUID, PrimaryKey, Default, HasOne } from 'sequelize-typescript';
 import User from './user.model';
 import Investment from './investment.model';
 import PropertyStats from './propertyStats.model';
 import Tokenomics from './tokenomics.model';
+
+export enum PropertyStatus {
+    DRAFT = 'draft',
+    UNDER_REVIEW = 'under_review',
+    PUBLISHED = 'published',
+    SOLD = 'sold',
+}
 
 @Table
 export default class Property extends Model<Property | IProperty> {
@@ -36,8 +44,12 @@ export default class Property extends Model<Property | IProperty> {
     @Column(DataType.ARRAY(DataType.STRING))
         document: string[];
 
-    @Column(DataType.BOOLEAN)
-        isDraft: boolean;
+    @Column({
+        type: DataType.ENUM,
+        values: Object.values(PropertyStatus),
+        defaultValue: PropertyStatus.DRAFT,
+    })
+        status: PropertyStatus;
 
     @Column(DataType.STRING)
         contractAddress: string;
@@ -83,7 +95,7 @@ export interface IProperty {
     gallery?: string[];
     banner?: string;
     document?: string[];
-    isDraft: boolean;
+    status: PropertyStatus;
     contractAddress?: string;
     listingPeriod: {
         start: Date;
