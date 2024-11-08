@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import PropertyService, { IViewPropertiesQuery } from '../services/property.service';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import { BadRequestError } from '../utils/customErrors';
-import { IProperty } from '../models/property.model';
+import { IProperty, PropertyStatus } from '../models/property.model';
 import { UserType } from '../models/user.model';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
 import { ITokenomics } from '../models/tokenomics.model';
@@ -10,7 +10,7 @@ import { TimePeriod } from '../utils/interface';
 
 export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
-        const { page, size, q, category, minPrice, maxPrice, ownerId, rentalYield, estimatedReturn, isDraft } = req.query;
+        const { page, size, q, category, minPrice, maxPrice, ownerId, rentalYield, estimatedReturn, status } = req.query;
 
         const queryParams: IViewPropertiesQuery = {
             ...(page && { page: Number(page) }),
@@ -22,7 +22,7 @@ export default class PropertyController {
             ...(ownerId && { ownerId: String(ownerId) }),
             ...(rentalYield && { rentalYield: Number(rentalYield) }),
             ...(estimatedReturn && { estimatedReturn: Number(estimatedReturn) }),
-            ...(isDraft && { isDraft: Boolean(isDraft) }),
+            ...(status && { status: PropertyStatus[status as keyof typeof PropertyStatus] }),
         };
 
         const properties = await PropertyService.viewProperties(queryParams);
@@ -61,7 +61,7 @@ export default class PropertyController {
 
         const propertyData = {
             ...req.body,
-            isDraft: true,
+            status: PropertyStatus.DRAFT,
             ownerId: req.user.id,
         };
 
@@ -87,6 +87,11 @@ export default class PropertyController {
         // Check ownership
         if (property.ownerId !== req.user.id) {
             throw new BadRequestError('Unauthorized to update this property');
+        }
+
+        // Prevent updates if property is under review or published
+        if (property.status !== PropertyStatus.DRAFT) {
+            throw new BadRequestError('Cannot update property that is not in draft status');
         }
 
         // Handle file operations and property data updates separately
@@ -268,20 +273,62 @@ export default class PropertyController {
         return uploadedUrls;
     }
 
-    // private static async cleanupRemovedFiles(removedFiles: { [key: string]: string[] }) {
-    //     const deletePromises: Promise<void>[] = [];
+    static async submitForReview(req: AuthenticatedRequest, res: Response) {
+        const { id } = req.params;
 
-    //     Object.values(removedFiles).flat().forEach(url => {
-    //         if (url) {
-    //             deletePromises.push(
-    //                 CloudinaryClientConfig.deleteFromCloudinary(url)
-    //                     .catch(error => console.error(`Failed to delete file ${url}:`, error))
-    //             );
-    //         }
-    //     });
+        if (!id) {
+            throw new BadRequestError('Property ID is required');
+        }
 
-    //     await Promise.all(deletePromises);
-    // }
+        const property = await PropertyService.viewProperty(id);
+
+        // Check ownership
+        if (property.ownerId !== req.user.id) {
+            throw new BadRequestError('Unauthorized to submit this property for review');
+        }
+
+        // Validate property is in draft status
+        if (property.status !== PropertyStatus.DRAFT) {
+            throw new BadRequestError('Only draft properties can be submitted for review');
+        }
+
+        const updatedProperty = await PropertyService.submitPropertyForReview(property);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Property submitted for review successfully',
+            data: updatedProperty,
+        });
+    }
+
+    static async reviewProperty(req: AuthenticatedRequest, res: Response) {
+        const { id } = req.params;
+        const { approved, rejectionReason } = req.body;
+
+        if (!id) {
+            throw new BadRequestError('Property ID is required');
+        }
+
+        // Verify user is an admin
+        // if (req.user.type !== UserType.ADMIN) {
+        //     throw new UnauthorizedError('Only administrators can review properties');
+        // }
+
+        const property = await PropertyService.viewProperty(id);
+
+        // Validate property is in review status
+        if (property.status !== PropertyStatus.UNDER_REVIEW) {
+            throw new BadRequestError('Only properties under review can be processed');
+        }
+
+        const updatedProperty = await PropertyService.reviewProperty(property, approved, rejectionReason);
+
+        res.status(200).json({
+            status: 'success',
+            message: `Property ${approved ? 'approved' : 'rejected'} successfully`,
+            data: updatedProperty,
+        });
+    }
 
     static async deleteProperty(req: AuthenticatedRequest, res: Response) {
         const { id } = req.params;
