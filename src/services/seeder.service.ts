@@ -1,7 +1,7 @@
 import { Op, QueryTypes, Sequelize, Transaction } from 'sequelize';
 import { faker } from '@faker-js/faker';
 import User, { UserType } from '../models/user.model';
-import Property from '../models/property.model';
+import Property, { PropertyStatus } from '../models/property.model';
 import Investment, { IInvestment, InvestmentStatus } from '../models/investment.model';
 import PropertyStats from '../models/propertyStats.model';
 import Tokenomics from '../models/tokenomics.model';
@@ -165,7 +165,7 @@ export default class SeederService {
                     gallery: Array(4).fill(null).map(() => faker.image.url()),
                     banner: faker.image.url(),
                     document: Array(2).fill(null).map(() => faker.system.filePath()),
-                    isDraft: false,
+                    status: PropertyStatus.PUBLISHED,   
                     contractAddress: faker.string.hexadecimal({ length: 40 }).toLowerCase(),
                     listingPeriod: {
                         start: faker.date.past({ years: 1 }),
@@ -456,4 +456,327 @@ export default class SeederService {
         const finalStatsCount = await PropertyStats.count({ transaction });
         console.log(`Property stats audit completed. Final stats count: ${finalStatsCount}`);
     }
+
+
+    static async updatePropertyStatuses() {
+        try {
+            await Database.transaction(async (transaction: Transaction) => {
+                await this.updateExistingProperties(transaction);
+                await this.createPropertiesUnderReview(transaction);
+                await this.createDraftProperties(transaction);
+            });
+            console.log('Property status update completed successfully');
+        } catch (error) {
+            console.error('Property status update failed:', error);
+            throw error;
+        }
+    }
+
+    private static async updateExistingProperties(transaction: Transaction) {
+        // Get all properties with investments
+        const propertiesWithInvestments = await Property.findAll({
+            include: [
+                {
+                    model: Investment,
+                    required: true,
+                },
+                {
+                    model: Tokenomics,
+                    required: true,
+                },
+                {
+                    model: PropertyStats,
+                    required: true,
+                },
+            ],
+            transaction,
+        });
+
+        console.log(`Found ${propertiesWithInvestments.length} properties with investments`);
+
+        for (const property of propertiesWithInvestments) {
+            // Calculate total shares assigned
+            const totalShares = property.investments.reduce(
+                (sum, inv) => sum + inv.sharesAssigned,
+                0
+            );
+
+            // Check if property should be marked as sold
+            const isSold = totalShares >= (property.tokenomics.totalTokenSupply * 0.95); // 95% threshold
+
+            // Update property status
+            await property.update({
+                status: isSold ? PropertyStatus.SOLD : PropertyStatus.PUBLISHED,
+            }, { transaction });
+
+            // Update remaining tokens
+            if (property.tokenomics) {
+                await property.tokenomics.update({
+                    remainingTokens: property.tokenomics.totalTokenSupply - totalShares,
+                }, { transaction });
+            }
+
+            // Generate more ratings for published properties
+            if (!isSold) {
+                await this.generateAdditionalRatings(property, transaction);
+            }
+        }
+
+        console.log('Existing properties updated successfully');
+    }
+
+    private static async createPropertiesUnderReview(transaction: Transaction) {
+        const numberOfPropertiesUnderReview = faker.number.int({ min: 3, max: 7 });
+        console.log(`Creating ${numberOfPropertiesUnderReview} properties under review`);
+
+        for (let i = 0; i < numberOfPropertiesUnderReview; i++) {
+            const price = faker.number.int({ min: 1000000, max: 90000000 });
+
+            const property = await Property.create({
+                category: faker.helpers.arrayElements(PROPERTY_CATEGORIES, { min: 1, max: 3 }),
+                name: faker.company.name() + ' ' + faker.location.street(),
+                description: faker.lorem.paragraphs(3),
+                location: faker.helpers.arrayElement(LOCATIONS),
+                price,
+                gallery: Array(4).fill(null).map(() => faker.image.url()),
+                banner: faker.image.url(),
+                document: Array(2).fill(null).map(() => faker.system.filePath()),
+                status: PropertyStatus.UNDER_REVIEW,
+                contractAddress: faker.string.hexadecimal({ length: 40 }).toLowerCase(),
+                listingPeriod: {
+                    start: faker.date.future({ years: 1 }),
+                    end: faker.date.future({ years: 2 }),
+                },
+                metrics: {
+                    TIG: Math.min(price * 0.8, 90000000),
+                    MIA: faker.number.int({ min: 50000, max: 500000 }),
+                    PAR: faker.number.float({ min: 1, max: 3, fractionDigits: 1 }),
+                },
+                ownerId: (await this.getRandomProjectOwnerId(transaction))!,
+            }, { transaction });
+
+            // Create property stats
+            await PropertyStats.create({
+                propertyId: property.id,
+                yield: 0,
+                totalInvestmentAmount: 0,
+                totalEstimatedReturns: 0,
+                overallRating: 0,
+                numberOfInvestors: 0,
+                ratingCount: 0,
+                visitCount: faker.number.int({ min: 50, max: 200 }), // Some initial visits
+            }, { transaction });
+
+            // Create tokenomics
+            await Tokenomics.create({
+                propertyId: property.id,
+                totalTokenSupply: 1000000,
+                remainingTokens: 1000000,
+                tokenPrice: faker.number.float({ min: 1, max: 10, fractionDigits: 2 }),
+                distribution: {
+                    team: 10,
+                    advisors: 5,
+                    investors: 80,
+                    other: 5,
+                },
+                distributionDescription: faker.lorem.paragraph(),
+            }, { transaction });
+        }
+    }
+
+    private static async createDraftProperties(transaction: Transaction) {
+        const numberOfDraftProperties = faker.number.int({ min: 5, max: 10 });
+        console.log(`Creating ${numberOfDraftProperties} draft properties`);
+
+        for (let i = 0; i < numberOfDraftProperties; i++) {
+            const price = faker.number.int({ min: 1000000, max: 90000000 });
+
+            const property = await Property.create({
+                category: faker.helpers.arrayElements(PROPERTY_CATEGORIES, { min: 1, max: 3 }),
+                name: faker.company.name() + ' ' + faker.location.street(),
+                description: faker.lorem.paragraphs(2),
+                location: faker.helpers.arrayElement(LOCATIONS),
+                price,
+                gallery: faker.helpers.maybe(() => Array(2).fill(null).map(() => faker.image.url()), { probability: 0.7 }),
+                banner: faker.helpers.maybe(() => faker.image.url(), { probability: 0.8 }),
+                document: faker.helpers.maybe(() => Array(2).fill(null).map(() => faker.image.url()), { probability: 0.5 }),
+                status: PropertyStatus.DRAFT,
+                listingPeriod: {
+                    start: faker.date.past({ years: 1 }),
+                    end: faker.date.future({ years: 1 }),
+                },
+                metrics: {
+                    TIG: Math.min(price * 0.8, 90000000),
+                    MIA: faker.number.int({ min: 50000, max: 500000 }),
+                },
+                ownerId: (await this.getRandomProjectOwnerId(transaction))!,
+            }, { transaction });
+
+            // Create basic property stats
+            await PropertyStats.create({
+                propertyId: property.id,
+                yield: 0,
+                totalInvestmentAmount: 0,
+                totalEstimatedReturns: 0,
+                overallRating: 0,
+                numberOfInvestors: 0,
+                ratingCount: 0,
+                visitCount: faker.number.int({ min: 10, max: 50 }), // Fewer visits for drafts
+            }, { transaction });
+        }
+    }
+
+    private static async generateAdditionalRatings(property: Property, transaction: Transaction) {
+        const currentStats = property.stats;
+        if (!currentStats) return;
+
+        // Generate additional ratings for published properties
+        const newRatings = faker.number.int({ min: 5, max: 15 });
+        let totalNewRating = 0;
+
+        for (let i = 0; i < newRatings; i++) {
+            // Weight towards higher ratings for published properties
+            const rating = faker.helpers.arrayElement([4, 4, 4, 5, 5, 5, 3, 3, 2]);
+            totalNewRating += rating;
+        }
+
+        const newAverageRating = (
+            (currentStats.overallRating * currentStats.ratingCount + totalNewRating) /
+            (currentStats.ratingCount + newRatings)
+        );
+
+        await currentStats.update({
+            ratingCount: currentStats.ratingCount + newRatings,
+            overallRating: Number(newAverageRating.toFixed(1)),
+            visitCount: currentStats.visitCount + faker.number.int({ min: 100, max: 300 }),
+        }, { transaction });
+    }
+
+    private static async getRandomProjectOwnerId(transaction: Transaction): Promise<string | null> {
+        const projectOwner = await User.findOne({
+            where: { type: UserType.PROJECT_OWNER },
+            order: Database.random(),
+            transaction,
+        });
+        return projectOwner?.id || null;
+    }
+
+
+
+    static async updateInvestmentStatuses() {
+        try {
+            await Database.transaction(async (transaction: Transaction) => {
+                await this.updateExistingInvestments(transaction);
+                await this.createMixedStatusInvestments(transaction);
+            });
+            console.log('Investment status update completed successfully');
+        } catch (error) {
+            console.error('Investment status update failed:', error);
+            throw error;
+        }
+    }
+
+    private static async updateExistingInvestments(transaction: Transaction) {
+        // Get all existing investments
+        const investments = await Investment.findAll({
+            include: [{
+                model: Property,
+                required: true,
+            }],
+            transaction,
+        });
+
+        console.log(`Found ${investments.length} existing investments`);
+
+        // Update investments based on property status
+        for (const investment of investments) {
+            let newStatus: InvestmentStatus;
+
+            if (investment.property.status === PropertyStatus.SOLD) {
+                // All investments in sold properties should be finished
+                newStatus = InvestmentStatus.Finish;
+            } else if (investment.property.status === PropertyStatus.PUBLISHED) {
+                // For published properties, set most investments as finished
+                // with a small chance of being pending
+                newStatus = faker.helpers.weightedArrayElement([
+                    { weight: 90, value: InvestmentStatus.Finish },
+                    { weight: 10, value: InvestmentStatus.Pending },
+                ]);
+            } else {
+                // For any other property status (shouldn't exist, but just in case)
+                newStatus = InvestmentStatus.Pending;
+            }
+
+            await investment.update({
+                status: newStatus,
+            }, { transaction });
+        }
+
+        // Log status distribution
+        const statusCounts = await Investment.findAll({
+            attributes: [
+                'status',
+                [Database.fn('COUNT', Database.col('status')), 'count'],
+            ],
+            group: ['status'],
+            transaction,
+        });
+
+        console.log('Investment status distribution after update:');
+        statusCounts.forEach((count) => {
+            console.log(`${count.status}: ${count.get('count')} investments`);
+        });
+    }
+
+    private static async createMixedStatusInvestments(transaction: Transaction) {
+        // Find published properties to add some new investments with mixed statuses
+        const publishedProperties = await Property.findAll({
+            where: { status: PropertyStatus.PUBLISHED },
+            include: [{
+                model: Investment,
+                required: false,
+            }],
+            transaction,
+        });
+
+        console.log(`Found ${publishedProperties.length} published properties for new investments`);
+
+        for (const property of publishedProperties) {
+            // Create a mix of pending and canceled investments
+            const newInvestmentsCount = faker.number.int({ min: 1, max: 3 });
+
+            for (let i = 0; i < newInvestmentsCount; i++) {
+                const status = faker.helpers.arrayElement([
+                    InvestmentStatus.Pending,
+                    InvestmentStatus.Cancel,
+                ]);
+
+                const amount = faker.number.int({
+                    min: property.metrics.MIA,
+                    max: Math.min(property.metrics.TIG / 5, 90000000),
+                });
+
+                await Investment.create({
+                    propertyId: property.id,
+                    amount,
+                    date: faker.date.recent(),
+                    sharesAssigned: Math.floor(amount / property.metrics.MIA),
+                    estimatedReturns: amount * faker.number.float({ min: 1.1, max: 1.5 }),
+                    status,
+                    propertyOwner: property.ownerId,
+                    investorId: (await this.getRandomInvestorId(transaction))!,
+                }, { transaction });
+            }
+        }
+    }
+
+    private static async getRandomInvestorId(transaction: Transaction): Promise<string | null> {
+        const investor = await User.findOne({
+            where: { type: UserType.INVESTOR },
+            order: Database.random(),
+            transaction,
+        });
+        return investor?.id || null;
+    }
+
 }
