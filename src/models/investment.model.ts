@@ -5,10 +5,12 @@ import Property from './property.model';
 import { calculateAndUpdateYield, updatePropertyInvestorCount } from './propertyStats.model';
 
 export enum InvestmentStatus {
-    Presale = 'presale',
-    InitialRelease = 'initial_release',
-    Vesting = 'vesting',
-    Finish = 'finish'
+    // Presale = 'presale',
+    // InitialRelease = 'initial_release',
+    // Vesting = 'vesting',
+    Finish = 'finish',
+    Cancel = 'cancel',
+    Pending = 'pending',
 }
 @Table
 export default class Investment extends Model<Investment | IInvestment> {
@@ -37,7 +39,11 @@ export default class Investment extends Model<Investment | IInvestment> {
     @Column(DataType.DECIMAL(10, 2))
         estimatedReturns: number;
 
-    @Column(DataType.ENUM(...Object.values(InvestmentStatus)))
+    @Column({
+        type: DataType.ENUM,
+        values: Object.values(InvestmentStatus),
+        defaultValue: InvestmentStatus.Finish,
+    })
         status: InvestmentStatus;
 
     @Column(DataType.STRING)
