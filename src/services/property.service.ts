@@ -1,5 +1,5 @@
 import { Transaction, Op, Includeable, col, fn, literal } from 'sequelize';
-import Property, { IProperty } from '../models/property.model';
+import Property, { IProperty, PropertyStatus } from '../models/property.model';
 import User from '../models/user.model';
 import Investment, { InvestmentStatus } from '../models/investment.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
@@ -18,7 +18,7 @@ export interface IViewPropertiesQuery {
     ownerId?: string;
     rentalYield?: number;
     estimatedReturn?: number;
-    isDraft?: boolean;
+    status?: PropertyStatus;
 }
 
 export default class PropertyService {
@@ -116,7 +116,7 @@ export default class PropertyService {
     static async viewProperties(queryData?: IViewPropertiesQuery): Promise<{ properties: Property[], count?: number, totalPages?: number }> {
         let conditions: Record<string, unknown> = {};
         let paginate = false;
-        const { page, size, q: query, category, minPrice, maxPrice, ownerId, isDraft, rentalYield, estimatedReturn } = queryData as IViewPropertiesQuery;
+        const { page, size, q: query, category, minPrice, maxPrice, ownerId, status, rentalYield, estimatedReturn } = queryData as IViewPropertiesQuery;
 
         if (page && size && page > 0 && size > 0) {
             const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
@@ -153,9 +153,12 @@ export default class PropertyService {
             };
         }
 
-        // handle isDraft filter
-        if (isDraft !== undefined) {
-            where = { ...where, isDraft };
+        // handle status filter
+        if (status !== undefined) {
+            where = {
+                ...where,
+                status,
+            };
         }
 
         // Price range handling
@@ -236,8 +239,6 @@ export default class PropertyService {
     }
 
     private static async getBasicPropertyOwnerStats(ownerId: string): Promise<IPropertyOwnerStats> {
-
-        // Get all properties by owner
         const properties = await Property.findAll({
             where: { ownerId },
             include: [
@@ -261,7 +262,11 @@ export default class PropertyService {
 
         // Calculate total listings and active listings
         const totalListings = properties.length;
-        const activeListings = properties.filter(p => !p.isDraft).length;
+        // Consider published and sold properties as active listings
+        const activeListings = properties.filter(p =>
+            p.status === PropertyStatus.PUBLISHED ||
+            p.status === PropertyStatus.SOLD
+        ).length;
 
         // Aggregate investment data
         let totalInvestmentAmount = 0;
@@ -277,35 +282,38 @@ export default class PropertyService {
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
         properties.forEach(property => {
-            // Sum up total investment amount
-            totalInvestmentAmount += property.stats?.totalInvestmentAmount || 0;
+            // Only count investments for published or sold properties
+            if (property.status === PropertyStatus.PUBLISHED || property.status === PropertyStatus.SOLD) {
+                // Sum up total investment amount
+                totalInvestmentAmount += property.stats?.totalInvestmentAmount || 0;
 
-            // Process investments
-            property.investments?.forEach(investment => {
-                // Count unique investors
-                totalInvestorsSet.add(investment.investorId);
+                // Process investments
+                property.investments?.forEach(investment => {
+                    // Count unique investors
+                    totalInvestorsSet.add(investment.investorId);
 
-                // Count investments by status
-                if (investment.status === InvestmentStatus.Finish) {
-                    completedInvestments++;
+                    // Count investments by status
+                    if (investment.status === InvestmentStatus.Finish) {
+                        completedInvestments++;
+                        if (new Date(investment.date) > oneMonthAgo) {
+                            lastMonthCompletedInvestments++;
+                        }
+                    } else {
+                        pendingInvestments++;
+                        if (new Date(investment.date) > oneMonthAgo) {
+                            lastMonthPendingInvestments++;
+                        }
+                    }
+
+                    // Count new investments and investors in last month
                     if (new Date(investment.date) > oneMonthAgo) {
-                        lastMonthCompletedInvestments++;
+                        newInvestmentsLastMonth++;
+                        if (property.stats?.numberOfInvestors) {
+                            newInvestorsLastMonth++;
+                        }
                     }
-                } else {
-                    pendingInvestments++;
-                    if (new Date(investment.date) > oneMonthAgo) {
-                        lastMonthPendingInvestments++;
-                    }
-                }
-
-                // Count new investments and investors in last month
-                if (new Date(investment.date) > oneMonthAgo) {
-                    newInvestmentsLastMonth++;
-                    if (property.stats?.numberOfInvestors) {
-                        newInvestorsLastMonth++;
-                    }
-                }
-            });
+                });
+            }
         });
 
         // Calculate percentage changes
@@ -338,6 +346,7 @@ export default class PropertyService {
             },
         };
     }
+
 
     private static async getTimeSeriesStats(
         ownerId: string,
@@ -429,9 +438,6 @@ export default class PropertyService {
                 propertyId,
             } as ITokenomics);
         }
-
-        // Update property draft status
-        await property.update({ isDraft: false });
 
         // Reload property with updated tokenomics
         const updatedProperty = await Property.findByPk(propertyId, {
@@ -546,7 +552,9 @@ export default class PropertyService {
         const topProperty = await Property.findOne({
             where: {
                 ownerId,
-                isDraft: false,
+                status: {
+                    [Op.in]: [PropertyStatus.PUBLISHED, PropertyStatus.SOLD],
+                },
             },
             include: [
                 {
@@ -590,5 +598,60 @@ export default class PropertyService {
             },
             investmentTrend: trendData,
         };
+    }
+
+    static async submitPropertyForReview(property: Property): Promise<Property> {
+        // Validate all required fields and media
+        await this.validatePropertyForSubmission(property);
+
+        // Update property status
+        await property.update({ status: PropertyStatus.UNDER_REVIEW });
+
+        return property;
+    }
+
+    static async reviewProperty(
+        property: Property,
+        approved: boolean,
+        rejectionReason?: string
+    ): Promise<Property> {
+        if (approved) {
+            // Update property status to published
+            await property.update({ status: PropertyStatus.PUBLISHED });
+        } else {
+            // Update property status back to draft and store rejection reason
+            if (!rejectionReason) {
+                throw new BadRequestError('Rejection reason is required when rejecting a property');
+            }
+            await property.update({
+                status: PropertyStatus.DRAFT,
+                // You might want to add a rejectionReason field to your model
+                // rejectionReason: rejectionReason
+            });
+        }
+
+        return property;
+    }
+
+    private static async validatePropertyForSubmission(property: Property): Promise<void> {
+        // Validate required fields
+        const validationErrors: string[] = [];
+
+        if (!property.name) validationErrors.push('Name is required');
+        if (!property.description) validationErrors.push('Description is required');
+        if (!property.location) validationErrors.push('Location is required');
+        if (!property.price) validationErrors.push('Price is required');
+        if (!property.banner) validationErrors.push('Banner image is required');
+        if (!property.gallery || property.gallery.length === 0) validationErrors.push('At least one gallery image is required');
+        if (!property.document || property.document.length === 0) validationErrors.push('At least one document is required');
+        if (!property.metrics?.TIG) validationErrors.push('Total Investment Goal (TIG) is required');
+        if (!property.metrics?.MIA) validationErrors.push('Minimum Investment Amount (MIA) is required');
+        if (!property.listingPeriod?.start || !property.listingPeriod?.end) {
+            validationErrors.push('Complete listing period is required');
+        }
+
+        if (validationErrors.length > 0) {
+            throw new BadRequestError(`Cannot submit for review: ${validationErrors.join(', ')}`);
+        }
     }
 }
