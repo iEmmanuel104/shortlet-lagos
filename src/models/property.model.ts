@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars */
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, IsUUID, PrimaryKey, Default, HasOne } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany, IsUUID, PrimaryKey, Default, HasOne, BelongsToMany } from 'sequelize-typescript';
 import User from './user.model';
 import Investment from './investment.model';
 import PropertyStats from './propertyStats.model';
 import Tokenomics from './tokenomics.model';
+import Blog from './blog.model';
+import BlogProperty from './blogProperty.model';
 
 export enum PropertyStatus {
     DRAFT = 'draft',
@@ -83,6 +85,9 @@ export default class Property extends Model<Property | IProperty> {
 
     @HasMany(() => Investment)
         investments: Investment[];
+
+    @BelongsToMany(() => Blog, () => BlogProperty)
+        blogs: Blog[];
 }
 
 export interface IProperty {
