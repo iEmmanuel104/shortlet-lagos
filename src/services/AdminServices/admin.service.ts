@@ -1,9 +1,10 @@
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import Admin, { IAdmin } from '../../models/admin.model';
 import { BadRequestError, NotFoundError } from '../../utils/customErrors';
 import { ADMIN_EMAIL } from '../../utils/constants';
 import moment from 'moment';
 import UserSettings, { IBlockMeta } from '../../models/userSettings.model';
+import SupportTicket, { ISupportTicket } from '../../models/supportTicket.model';
 
 export default class AdminService {
 
@@ -82,5 +83,19 @@ export default class AdminService {
         });
 
         return userSettings;
+    }
+
+    static async createTicket(ticketData: ISupportTicket, transaction?: Transaction): Promise<SupportTicket> {
+        const { email, name, message, subject, type, userId } = ticketData;
+        const ticket = await SupportTicket.create({
+            email,
+            name,
+            message,
+            subject,
+            type,
+            ...(userId && { userId }),
+        } as ISupportTicket,
+        { transaction });
+        return ticket;
     }
 }
