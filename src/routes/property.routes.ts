@@ -20,6 +20,8 @@ router
     .post('/', basicAuth(), AuthenticatedController(PropertyController.addProperty))
     .patch('/:id', basicAuth(), upload, AuthenticatedController(PropertyController.updateProperty))
     .patch('/:id/tokenomics', basicAuth(), AuthenticatedController(PropertyController.updatePropertyTokenomics))
+    .post('/:id/submit-review', basicAuth(), AuthenticatedController(PropertyController.submitForReview))
+    .post('/:id/review', basicAuth(), AuthenticatedController(PropertyController.reviewProperty))
     .get('/owner/stats', basicAuth(), AuthenticatedController(PropertyController.getOwnerStats))
     .get('/owner/top-investment', basicAuth(), AuthenticatedController(PropertyController.getTopPropertyInvestment))
     .delete('/:id', basicAuth(), AuthenticatedController(PropertyController.deleteProperty));
