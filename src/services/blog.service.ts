@@ -1,13 +1,15 @@
 /* eslint-disable no-undef */
 
 // blog.service.ts
-import { Transaction, Op } from 'sequelize';
+import { Transaction, Op, IncludeOptions } from 'sequelize';
 import Blog, { IBlog, BlogStatus } from '../models/blog.model';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import BlogActivity, { IBlogActivity } from '../models/blogActivity.model';
 import User from '../models/user.model';
 import sequelize from 'sequelize';
+import Property from '../models/property.model';
+import PropertyStats from '../models/propertyStats.model';
 
 export interface IViewBlogsQuery {
     page?: number;
@@ -16,6 +18,7 @@ export interface IViewBlogsQuery {
     tag?: string;
     userId?: string;
     authorId?: string;
+    propertyId?: string;
     q?: string;
 }
 
@@ -42,22 +45,38 @@ export default class BlogService {
         const blog = await Blog.findByPk(
             id,
             {
-                include: [{
-                    model: BlogActivity,
-                    as: 'activities',
-                    attributes: ['id', 'comment', 'createdAt'],
-                    where: {
-                        comment: {
-                            [Op.not]: null,
+                include: [
+                    {
+                        model: BlogActivity,
+                        as: 'activities',
+                        attributes: ['id', 'comment', 'createdAt'],
+                        where: {
+                            comment: {
+                                [Op.not]: null,
+                            },
                         },
+                        required: false,
+                        include: [{
+                            model: User,
+                            as: 'user',
+                            attributes: ['id', 'firstName', 'lastName', 'email', 'displayImage'],
+                        }],
                     },
-                    required: false,
-                    include: [{
+                    {
                         model: User,
-                        as: 'user',
+                        as: 'author',
                         attributes: ['id', 'firstName', 'lastName', 'email', 'displayImage'],
-                    }],
-                }],
+                    },
+                    {
+                        model: Property,
+                        through: { attributes: [] },
+                        attributes: ['id', 'name', 'description', 'location', 'price', 'banner', 'status'],
+                        include: [{
+                            model: PropertyStats,
+                            attributes: ['yield', 'totalInvestmentAmount', 'numberOfInvestors'],
+                        }],
+                    },
+                ],
                 attributes: {
                     include: [
                         [
@@ -69,6 +88,10 @@ export default class BlogService {
                             'commentsCount',
                         ],
                         ...(userId ? [
+                            [
+                                sequelize.literal(`(SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM "BlogActivities" WHERE "BlogActivities"."blogId" = "Blog"."id" AND "BlogActivities"."userId" = '${userId}' AND "BlogActivities"."liked" = true)`),
+                                'userHasLiked',
+                            ],
                             [
                                 sequelize.literal(`(SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM "BlogActivities" WHERE "BlogActivities"."blogId" = "Blog"."id" AND "BlogActivities"."userId" = '${userId}' AND "BlogActivities"."comment" IS NOT NULL)`),
                                 'userHasCommented',
@@ -86,40 +109,11 @@ export default class BlogService {
     }
 
     static async getAllBlogs(queryData: IViewBlogsQuery): Promise<{ blogs: Blog[], count?: number, totalPages?: number }> {
-        const { page, size, status, tag, q: query, userId, authorId } = queryData;
+        const { page, size, status, tag, q: query, userId, authorId, propertyId } = queryData;
+
         const where: Record<string | symbol, unknown> = {};
-
-        if (query) {
-            where[Op.or] = [
-                { title: { [Op.iLike]: `%${query}%` } },
-                { content: { [Op.iLike]: `%${query}%` } },
-            ];
-        }
-
-        if (status) {
-            where.status = status;
-        }
-        if (tag) {
-            where.tags = { [Op.contains]: [tag] };
-        }
-
-        if (authorId) {
-            where.authorId = authorId;
-        }
-
-        let conditions: Record<string, unknown> = {};
-        let paginate = false;
-
-        if (page && size && page > 0 && size > 0) {
-            const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
-            conditions = { limit, offset };
-            paginate = true;
-        }
-
-        const { rows: blogs, count } = await Blog.findAndCountAll({
-            where,
-            ...conditions,
-            include: [{
+        const include: IncludeOptions[] = [
+            {
                 model: BlogActivity,
                 as: 'activities',
                 attributes: ['id', 'comment', 'createdAt'],
@@ -134,8 +128,65 @@ export default class BlogService {
                     as: 'user',
                     attributes: ['id', 'firstName', 'lastName', 'email', 'displayImage'],
                 }],
-            }],
+            },
+            {
+                model: User,
+                as: 'author',
+                attributes: ['id', 'firstName', 'lastName', 'email', 'displayImage'],
+            },
+            {
+                model: Property,
+                through: { attributes: [] }, // Don't include junction table attributes
+                attributes: ['id', 'name', 'description', 'location', 'price', 'banner', 'status'],
+                include: [{
+                    model: PropertyStats,
+                    attributes: ['yield', 'totalInvestmentAmount', 'numberOfInvestors'],
+                }],
+            },
+        ];
+
+        if (query) {
+            where[Op.or] = [
+                { title: { [Op.iLike]: `%${query}%` } },
+                { content: { [Op.iLike]: `%${query}%` } },
+            ];
+        }
+
+        if (status) {
+            where.status = status;
+        }
+        if (tag) {
+            where.tags = { [Op.contains]: [tag] };
+        }
+        if (authorId) {
+            where.authorId = authorId;
+        }
+
+        // Add property filter if propertyId is provided
+        if (propertyId) {
+            include.push({
+                model: Property,
+                where: { id: propertyId },
+                through: { attributes: [] },
+                required: true,
+            });
+        }
+
+        let conditions: Record<string, unknown> = {};
+        let paginate = false;
+
+        if (page && size && page > 0 && size > 0) {
+            const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
+            conditions = { limit, offset };
+            paginate = true;
+        }
+
+        const { rows: blogs, count } = await Blog.findAndCountAll({
+            where,
+            ...conditions,
+            include,
             order: [['createdAt', 'DESC']],
+            distinct: true,
             attributes: {
                 include: [
                     [
@@ -146,14 +197,18 @@ export default class BlogService {
                         sequelize.literal('(SELECT COUNT(*) FROM "BlogActivities" WHERE "BlogActivities"."blogId" = "Blog"."id" AND "BlogActivities"."comment" IS NOT NULL)'),
                         'commentsCount',
                     ],
-
                     ...(userId ? [
                         [
                             sequelize.literal(`(SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM "BlogActivities" WHERE "BlogActivities"."blogId" = "Blog"."id" AND "BlogActivities"."userId" = '${userId}' AND "BlogActivities"."comment" IS NOT NULL)`),
                             'userHasCommented',
                         ],
+                        [
+                            sequelize.literal(`(SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM "BlogActivities" WHERE "BlogActivities"."blogId" = "Blog"."id" AND "BlogActivities"."userId" = '${userId}' AND "BlogActivities"."liked" = true)`),
+                            'userHasLiked',
+                        ],
                     ] : []),
-                ] as [sequelize.Utils.Literal, string][]            },
+                ] as [sequelize.Utils.Literal, string][],
+            },
         });
 
         if (paginate && blogs.length > 0) {
