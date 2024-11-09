@@ -193,7 +193,7 @@ export default class BlogController {
     }
 
     static async getAllBlogs(req: Request, res: Response) {
-        const { page, size, status, q, tag, userId, authorId } = req.query;
+        const { page, size, status, q, tag, userId, propertyId, authorId } = req.query;
 
         const blogs = await BlogService.getAllBlogs({
             page: page ? parseInt(page as string) : undefined,
@@ -203,6 +203,7 @@ export default class BlogController {
             tag: tag as string,
             userId: userId as string,
             authorId: authorId as string,
+            propertyId: propertyId as string,
         });
 
         res.status(200).json({
