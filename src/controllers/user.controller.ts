@@ -1,9 +1,15 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import UserService from '../services/user.service';
 import { BadRequestError } from '../utils/customErrors';
 import { AuthenticatedRequest } from '../middlewares/authMiddleware';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
 import Validator from '../utils/validators';
+import { logger } from '../utils/logger';
+import { Transaction } from 'sequelize';
+import { Database } from '../models';
+import { TicketType, ISupportTicket } from '../models/supportTicket.model';
+// import { emailService } from '../utils/Email';
+import AdminService from '../services/AdminServices/admin.service';
 
 export default class UserController {
 
@@ -111,6 +117,72 @@ export default class UserController {
             status: 'success',
             message: 'User updated successfully',
             data: updatedUser,
+        });
+    }
+
+    static async createSupportTicket(req: Request, res: Response) {
+        const { email, name, message, subject, type } = req.body;
+
+        const missingFields = [];
+        if (!email) missingFields.push('email');
+        if (!message) missingFields.push('message');
+        if (!subject) missingFields.push('subject');
+        if (!type) missingFields.push('type');
+        if (!name) missingFields.push('name');
+
+        if (missingFields.length > 0) {
+            throw new BadRequestError(`Please provide ${missingFields.join(', ')}`);
+        }
+
+        const validEmail = Validator.isValidEmail(email);
+        if (!validEmail) {
+            throw new BadRequestError('Invalid email format');
+        }
+
+        // check if type is support or bug report
+        const validType = type === TicketType.SupportRequest || type === TicketType.BugReport;
+        if (!validType) {
+            throw new BadRequestError('Invalid type');
+        }
+
+        const templateData = {
+            email,
+            name,
+            message,
+            subject,
+            type,
+        };
+
+        // send email to support
+        // await emailService.send({
+        //     email: 'batch',
+        //     subject: type,
+        //     from: 'support',
+        //     isPostmarkTemplate: true,
+        //     postMarkTemplateAlias: 'support-email',
+        //     postmarkInfo: [{
+        //         postMarkTemplateData: templateData,
+        //         receipientEmail: 'help@blkat.io',
+        //     }],
+        // });
+
+        await Database.transaction(async (transaction: Transaction) => {
+            // check if email exists
+            const userExists = (req as AuthenticatedRequest) && (req as AuthenticatedRequest).user;
+            let userId = null;
+            if (userExists && userExists.id) {
+                userId = userExists.id;
+                (templateData as ISupportTicket).userId = userId;
+            }
+
+            const ticket = await AdminService.createTicket(templateData as ISupportTicket, transaction);
+            logger.info('ticket created', ticket);
+
+            res.status(200).json({
+                status: 'success',
+                message: `${type} sent successfully`,
+                data: null,
+            });
         });
     }
 
