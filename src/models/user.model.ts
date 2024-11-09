@@ -13,6 +13,7 @@ import Review from './review.model';
 import VerificationDoc from './verificationDocs.model';
 import WithdrawalRequest from './withdrawalRequest.model';
 import Referral from './referral.model';
+import SupportTicket from './supportTicket.model';
 
 export enum UserType {
     INVESTOR = 'investor',
@@ -206,6 +207,8 @@ export default class User extends Model<User | IUser> {
     @HasMany(() => WithdrawalRequest)
         withdrawalRequest: WithdrawalRequest[];
 
+    @HasMany(() => SupportTicket)
+        supportTickets: SupportTicket[];
 
     @BeforeFind
     static beforeFindHook(options: FindOptions) {
