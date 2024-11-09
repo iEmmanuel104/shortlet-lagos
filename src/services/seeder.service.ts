@@ -7,6 +7,9 @@ import PropertyStats from '../models/propertyStats.model';
 import Tokenomics from '../models/tokenomics.model';
 import UserSettings from '../models/userSettings.model';
 import { Database } from '../models';
+import Blog, { IBlog, BlogStatus } from '../models/blog.model';
+import BlogActivity, { IBlogActivity } from '../models/blogActivity.model';
+import BlogProperty from '../models/blogProperty.model';
 
 const LOCATIONS = [
     'Lekki Phase 1, Lagos',
@@ -26,6 +29,17 @@ const PROPERTY_CATEGORIES = [
     'Retail',
     'Office',
     'Industrial',
+];
+
+const BLOG_TAGS = [
+    'Investment Tips',
+    'Market Analysis',
+    'Property Insights',
+    'Real Estate News',
+    'Investment Strategy',
+    'Market Trends',
+    'Property Management',
+    'Development Updates',
 ];
 
 interface InvestmentAggregation {
@@ -165,7 +179,7 @@ export default class SeederService {
                     gallery: Array(4).fill(null).map(() => faker.image.url()),
                     banner: faker.image.url(),
                     document: Array(2).fill(null).map(() => faker.system.filePath()),
-                    status: PropertyStatus.PUBLISHED,   
+                    status: PropertyStatus.PUBLISHED,
                     contractAddress: faker.string.hexadecimal({ length: 40 }).toLowerCase(),
                     listingPeriod: {
                         start: faker.date.past({ years: 1 }),
@@ -314,10 +328,12 @@ export default class SeederService {
         }, {} as Record<string, number>);
 
         console.log('Investment distribution:');
-        console.log(`Average investments per property: ${Object.values(propertyInvestmentCounts).reduce((a, b) => a + b, 0) / Object.keys(propertyInvestmentCounts).length
-        }`);
-        console.log(`Average investments per investor: ${Object.values(investorInvestmentCounts).reduce((a, b) => a + b, 0) / Object.keys(investorInvestmentCounts).length
-        }`);
+        console.log(
+            `Average investments per property: ${Object.values(propertyInvestmentCounts).reduce((a, b) => a + b, 0) / Object.keys(propertyInvestmentCounts).length}`
+        );
+        console.log(
+            `Average investments per investor: ${Object.values(investorInvestmentCounts).reduce((a, b) => a + b, 0) / Object.keys(investorInvestmentCounts).length}`
+        );
     }
 
     private static async auditPropertyStats(transaction: Transaction) {
@@ -779,4 +795,120 @@ export default class SeederService {
         return investor?.id || null;
     }
 
+
+
+    static async seedBlogs() {
+        try {
+            await Database.transaction(async (transaction: Transaction) => {
+                // Create blogs
+                await this.createBlogs(transaction);
+                // Create blog activities
+                await this.createBlogActivities(transaction);
+            });
+            console.log('Blog seeding completed successfully');
+        } catch (error) {
+            console.error('Blog seeding failed:', error);
+            throw error;
+        }
+    }
+
+    private static async createBlogs(transaction: Transaction) {
+        // Get all project owners
+        const projectOwners = await User.findAll({
+            where: { type: UserType.PROJECT_OWNER },
+            transaction,
+        });
+
+        // Get all published properties
+        const properties = await Property.findAll({
+            where: { status: PropertyStatus.PUBLISHED },
+            transaction,
+        });
+
+        for (const owner of projectOwners) {
+            // Each project owner creates 2-5 blogs
+            const blogCount = faker.number.int({ min: 2, max: 5 });
+
+            for (let i = 0; i < blogCount; i++) {
+                const blogData: IBlog = {
+                    title: faker.commerce.productName() + ' - ' + faker.company.catchPhrase(),
+                    content: faker.lorem.paragraphs(5),
+                    authorId: owner.id,
+                    status: faker.helpers.arrayElement(Object.values(BlogStatus)),
+                    tags: faker.helpers.arrayElements(BLOG_TAGS, { min: 1, max: 4 }),
+                    media: {
+                        images: Array(faker.number.int({ min: 0, max: 3 }))
+                            .fill(null)
+                            .map(() => faker.image.url()),
+                    },
+                };
+
+                const blog = await Blog.create(blogData, { transaction });
+
+                // Randomly associate with 0-3 properties owned by this owner
+                const ownerProperties = properties.filter(p => p.ownerId === owner.id);
+                const selectedProperties = faker.helpers.arrayElements(
+                    ownerProperties,
+                    { min: 0, max: Math.min(3, ownerProperties.length) }
+                );
+
+                if (selectedProperties.length > 0) {
+                    await Promise.all(
+                        selectedProperties.map(property =>
+                            BlogProperty.create(
+                                {
+                                    blogId: blog.id,
+                                    propertyId: property.id,
+                                },
+                                { transaction }
+                            )
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    private static async createBlogActivities(transaction: Transaction) {
+        // Get all blogs
+        const blogs = await Blog.findAll({
+            where: { status: BlogStatus.Published },
+            transaction,
+        });
+
+        // Get all users
+        const users = await User.findAll({ transaction });
+
+        for (const blog of blogs) {
+            // Generate 5-15 random activities per blog
+            const activityCount = faker.number.int({ min: 5, max: 15 });
+
+            for (let i = 0; i < activityCount; i++) {
+                const user = faker.helpers.arrayElement(users);
+                const isLike = faker.datatype.boolean();
+                const hasComment = faker.datatype.boolean();
+
+                const activityData: IBlogActivity = {
+                    userId: user.id,
+                    blogId: blog.id,
+                    liked: isLike,
+                    comment: hasComment ? faker.lorem.sentences(2) : null,
+                };
+
+                await BlogActivity.create(activityData, { transaction });
+            }
+        }
+    }
+
+    // Helper method to randomly generate blog content
+    private static generateBlogContent(): string {
+        const paragraphs = faker.number.int({ min: 3, max: 7 });
+        const content = [];
+
+        for (let i = 0; i < paragraphs; i++) {
+            content.push(faker.lorem.paragraph());
+        }
+
+        return content.join('\n\n');
+    }
 }
