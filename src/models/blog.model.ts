@@ -1,8 +1,10 @@
 /* eslint-disable no-unused-vars */
 // blog.model.ts
-import { Table, Column, Model, DataType, IsUUID, PrimaryKey, Default, HasMany, BelongsTo, ForeignKey } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, IsUUID, PrimaryKey, Default, HasMany, BelongsTo, ForeignKey, BelongsToMany } from 'sequelize-typescript';
 import BlogActivity from './blogActivity.model';
 import User from './user.model';
+import BlogProperty from './blogProperty.model';
+import Property from './property.model';
 
 export enum BlogStatus {
     Draft = 'Draft',
@@ -65,6 +67,9 @@ export default class Blog extends Model<Blog | IBlog> {
     
     @BelongsTo(() => User)
         author: User;
+    
+    @BelongsToMany(() => Property, () => BlogProperty)
+        properties: Property[];
 }
 
 export interface IBlog {
