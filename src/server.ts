@@ -1,7 +1,7 @@
 import app from './app';
 import { initiateDB } from './models';
 import { logger } from './utils/logger';
-import { initializeWeb3 } from './clients/web3.config';
+import { initializeWeb3 } from './clients/web3Config';
 // import { redisClient } from './utils/redis';
 
 // Asynchronous function to start the server
