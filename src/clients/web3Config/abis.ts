@@ -1,8 +1,8 @@
 export const FACTORY_CONTRACT_ADDRESS = '0xD1cDA88A8b26F05d170e7c133C113E742Bf4D547';
 export const BASE_USDC_CONTRACT_ADDRESS = '0x9A676e781A523b5d0C0e437313B3732f905b5206';
-export const PRIVATE_KEY = '0x8c9be67bff33838b3efc772e4c9610086b9c9ad447e9b9104bffb7c45b4f550d';
+export const PRIVATE_KEY = process.env.PRIVATE_KEY as string;
 export const FACTORY_WALLET_ADDRESS_FOR_PK = '0xD95Fd5EB3de199b4AAB922DE87bD7981500C6E38';
-
+export const BASE_SEPOLIA_RPC = 'https://base-sepolia-rpc.publicnode.com';
 
 export const USDC_ABI = [
     {
