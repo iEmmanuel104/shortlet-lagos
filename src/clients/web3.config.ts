@@ -7,7 +7,6 @@ import {
     type WalletClient,
     type Hash,
     decodeEventLog,
-    type TransactionReceipt
 } from 'viem';
 import { baseSepolia as CONTRACT_CHAIN } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -16,7 +15,7 @@ import {
     USDC_ABI,
     FACTORY_CONTRACT_ADDRESS,
     BASE_USDC_CONTRACT_ADDRESS,
-    PRIVATE_KEY
+    PRIVATE_KEY,
 } from '../utils/abis';
 
 export interface ICreateTokenParams {
@@ -50,7 +49,7 @@ class Web3ClientConfig {
             // Initialize wallet client
             this.walletClient = createWalletClient({
                 chain: CONTRACT_CHAIN,
-                transport: http()
+                transport: http(),
             });
 
             // Set up account
@@ -63,13 +62,7 @@ class Web3ClientConfig {
         }
     }
 
-    static async createPropertyToken({
-        name,
-        symbol,
-        initialAssetValue,
-        maxSupply,
-        ownerAddress,
-    }: ICreateTokenParams): Promise<Address> {
+    static async createPropertyToken({ name, symbol, initialAssetValue, maxSupply, ownerAddress }: ICreateTokenParams): Promise<Address> {
         try {
             if (!this.walletClient || !this.account) {
                 throw new Error('Web3 client not initialized');
@@ -90,7 +83,7 @@ class Web3ClientConfig {
                 address: FACTORY_CONTRACT_ADDRESS as Address,
                 abi: REAL_ESTATE_FACTORY_ABI,
                 functionName: 'createRealEstateToken',
-                args
+                args,
             });
 
             // Send the transaction
@@ -105,7 +98,7 @@ class Web3ClientConfig {
                     const decoded = decodeEventLog({
                         abi: REAL_ESTATE_FACTORY_ABI,
                         data: log.data,
-                        topics: log.topics
+                        topics: log.topics,
                     });
                     return decoded.eventName === 'RealEstateTokenCreated';
                 } catch {
@@ -120,7 +113,7 @@ class Web3ClientConfig {
             const decodedEvent = decodeEventLog({
                 abi: REAL_ESTATE_FACTORY_ABI,
                 data: event.data,
-                topics: event.topics
+                topics: event.topics,
             });
 
             if (!decodedEvent.args || !('newTokenAddress' in decodedEvent.args)) {
