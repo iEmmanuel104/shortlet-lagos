@@ -17,6 +17,7 @@ import {
     BASE_USDC_CONTRACT_ADDRESS,
     PRIVATE_KEY,
 } from '../utils/abis';
+import { logger } from '../utils/logger';
 
 export interface ICreateTokenParams {
     name: string;
@@ -173,7 +174,29 @@ class Web3ClientConfig {
     }
 }
 
-// Initialize when imported
-Web3ClientConfig.initialize();
+// // Initialize when imported
+// Web3ClientConfig.initialize();
 
 export default Web3ClientConfig;
+
+
+// Maximum number of retry attempts for Web3 initialization
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY = 5000; // 5 seconds
+
+export async function initializeWeb3(attempt: number = 1): Promise<void> {
+    try {
+        await Web3ClientConfig.initialize();
+        logger.info('Web3 client initialized successfully');
+    } catch (error) {
+        logger.error(`Failed to initialize Web3 client (attempt ${attempt}/${MAX_RETRY_ATTEMPTS}):`, error);
+
+        if (attempt < MAX_RETRY_ATTEMPTS) {
+            logger.info(`Retrying Web3 initialization in ${RETRY_DELAY / 1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            await initializeWeb3(attempt + 1);
+        } else {
+            throw new Error('Failed to initialize Web3 client after maximum retry attempts');
+        }
+    }
+}
