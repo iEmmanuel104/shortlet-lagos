@@ -1,16 +1,20 @@
 import app from './app';
 import { initiateDB } from './models';
 import { logger } from './utils/logger';
+import { initializeWeb3 } from './clients/web3.config';
 // import { redisClient } from './utils/redis';
 
 // Asynchronous function to start the server
 async function startServer(): Promise<void> {
-    try {      
+    try {
         // await redisClient.on('connect', () => {
         //     logger.info('Connection to REDIS database successful');
         // });
         // Initiate a connection to the database
         await initiateDB();
+
+        // Initialize Web3 client with retry logic
+        await initializeWeb3();
 
         // Start the server and listen on port 8080
         app.listen(process.env.PORT || 8090, () => {
