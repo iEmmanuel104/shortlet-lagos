@@ -7,6 +7,7 @@ import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
 import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
 import { IPropertyOwnerStats, IPropertyOwnerStatsWithTimeSeries, ITopPropertyInvestment, TimeBasedStats, TimePeriod } from '../utils/interface';
+import Web3ClientConfig, { ICreateTokenParams } from '../clients/web3.config';
 
 export interface IViewPropertiesQuery {
     page?: number;
@@ -616,8 +617,28 @@ export default class PropertyService {
         rejectionReason?: string
     ): Promise<Property> {
         if (approved) {
-            // Update property status to published
-            await property.update({ status: PropertyStatus.PUBLISHED });
+            try {
+                // Create property token when approved
+                const tokenParams: ICreateTokenParams = {
+                    name: `${property.name} Token`,
+                    symbol: property.name.substring(0, 3).toUpperCase() + 'TKN',
+                    initialAssetValue: property.metrics.TIG, // Total Investment Goal as initial value
+                    maxSupply: property.tokenomics?.totalTokenSupply || 1000000, // Use tokenomics or default
+                    ownerAddress: property.ownerId, // Assuming ownerId is the wallet address
+                };
+
+                const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
+
+                // Update property with contract address and status
+                await property.update({
+                    status: PropertyStatus.PUBLISHED,
+                    contractAddress: contractAddress,
+                });
+
+            } catch (error) {
+                console.error('Failed to create property token:', error);
+                throw new Error('Failed to create property token on blockchain');
+            }
         } else {
             // Update property status back to draft and store rejection reason
             if (!rejectionReason) {
