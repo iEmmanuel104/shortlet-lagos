@@ -7,7 +7,8 @@ import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
 import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
 import { IPropertyOwnerStats, IPropertyOwnerStatsWithTimeSeries, ITopPropertyInvestment, TimeBasedStats, TimePeriod } from '../utils/interface';
-import Web3ClientConfig, { ICreateTokenParams } from '../clients/web3.config';
+import Web3ClientConfig from '../clients/web3Config';
+import { ICreateTokenParams } from '../clients/web3Config/interface';
 
 export interface IViewPropertiesQuery {
     page?: number;
