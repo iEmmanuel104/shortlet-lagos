@@ -10,10 +10,10 @@ import {
     USDC_ABI,
     FACTORY_CONTRACT_ADDRESS,
     BASE_USDC_CONTRACT_ADDRESS,
-} from '../../utils/abis';
+    BASE_SEPOLIA_RPC,
+} from './abis';
 
 // Initialize provider
-export const BASE_SEPOLIA_RPC = 'https://base-sepolia-rpc.publicnode.com';
 export const provider = new ethers.JsonRpcProvider(BASE_SEPOLIA_RPC, {
     chainId: 84532,
     name: 'base-sepolia',
