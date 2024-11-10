@@ -81,7 +81,7 @@ export default class PropertyService {
             {
                 model: User,
                 as: 'owner',
-                attributes: ['id', 'username', 'email'],
+                attributes: ['id', 'username', 'email', 'walletAddress'],
             },
             {
                 model: Investment,
@@ -624,7 +624,7 @@ export default class PropertyService {
                     symbol: property.name.substring(0, 3).toUpperCase() + 'TKN',
                     initialAssetValue: property.metrics.TIG, // Total Investment Goal as initial value
                     maxSupply: property.tokenomics?.totalTokenSupply || 1000000, // Use tokenomics or default
-                    ownerAddress: property.ownerId, // Assuming ownerId is the wallet address
+                    ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
                 };
 
                 const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
@@ -651,7 +651,7 @@ export default class PropertyService {
             });
         }
 
-        return property;
+        return property.reload();
     }
 
     private static async validatePropertyForSubmission(property: Property): Promise<void> {
