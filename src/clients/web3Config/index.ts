@@ -16,7 +16,7 @@ import {
 import { logger } from '../../utils/logger';
 import {
     PRIVATE_KEY,
-} from '../../utils/abis';
+} from './abis';
 
 class Web3ClientConfig {
     private static wallet: ethers.Wallet | null = null;
