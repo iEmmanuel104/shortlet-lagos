@@ -627,6 +627,7 @@ export default class PropertyService {
                     ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
                 };
 
+                await Web3ClientConfig.getFactoryUSDCAddress();
                 const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
 
                 // Update property with contract address and status

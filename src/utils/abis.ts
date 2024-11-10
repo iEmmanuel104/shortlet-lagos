@@ -1,6 +1,7 @@
-export const FACTORY_CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+export const FACTORY_CONTRACT_ADDRESS = '0xD1cDA88A8b26F05d170e7c133C113E742Bf4D547';
 export const BASE_USDC_CONTRACT_ADDRESS = '0x9A676e781A523b5d0C0e437313B3732f905b5206';
-export const PRIVATE_KEY = '0x7289fd08ecb07ef5066c7829f48ed4a540a79913e599b2a98db2b8f537d5e2bc';
+export const PRIVATE_KEY = '0x8c9be67bff33838b3efc772e4c9610086b9c9ad447e9b9104bffb7c45b4f550d';
+export const FACTORY_WALLET_ADDRESS_FOR_PK = '0xD95Fd5EB3de199b4AAB922DE87bD7981500C6E38';
 
 
 export const USDC_ABI = [
@@ -122,29 +123,242 @@ export const USDC_ABI = [
 
 export const REAL_ESTATE_FACTORY_ABI = [
     {
-        inputs: [
-            { type: 'string', name: 'name' },
-            { type: 'string', name: 'symbol' },
-            { type: 'uint256', name: 'initialAssetValue' },
-            { type: 'uint256', name: '_maxSupply' },
-            { type: 'address', name: 'ownerAddress' },
+        'anonymous': false,
+        'inputs': [
+            {
+                'indexed': true,
+                'internalType': 'address',
+                'name': 'previousOwner',
+                'type': 'address',
+            },
+            {
+                'indexed': true,
+                'internalType': 'address',
+                'name': 'newOwner',
+                'type': 'address',
+            },
         ],
-        name: 'createRealEstateToken',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
+        'name': 'OwnershipTransferred',
+        'type': 'event',
     },
     {
-        anonymous: false,
-        inputs: [
-            { indexed: true, name: 'newTokenAddress', type: 'address' },
-            { indexed: false, name: 'name', type: 'string' },
-            { indexed: false, name: 'symbol', type: 'string' },
-            { indexed: false, name: 'initialAssetValue', type: 'uint256' },
-            { indexed: false, name: 'maxSupply', type: 'uint256' },
-            { indexed: true, name: 'owner', type: 'address' },
+        'anonymous': false,
+        'inputs': [
+            {
+                'indexed': true,
+                'internalType': 'address',
+                'name': 'newTokenAddress',
+                'type': 'address',
+            },
+            {
+                'indexed': false,
+                'internalType': 'string',
+                'name': 'name',
+                'type': 'string',
+            },
+            {
+                'indexed': false,
+                'internalType': 'string',
+                'name': 'symbol',
+                'type': 'string',
+            },
+            {
+                'indexed': false,
+                'internalType': 'uint256',
+                'name': 'initialAssetValue',
+                'type': 'uint256',
+            },
+            {
+                'indexed': false,
+                'internalType': 'uint256',
+                'name': 'maxSupply',
+                'type': 'uint256',
+            },
+            {
+                'indexed': false,
+                'internalType': 'address',
+                'name': 'owner',
+                'type': 'address',
+            },
         ],
-        name: 'RealEstateTokenCreated',
-        type: 'event',
+        'name': 'RealEstateTokenCreated',
+        'type': 'event',
+    },
+    {
+        'inputs': [],
+        'name': 'USDC_ADDRESS',
+        'outputs': [
+            {
+                'internalType': 'address',
+                'name': '',
+                'type': 'address',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [
+            {
+                'internalType': 'string',
+                'name': 'name',
+                'type': 'string',
+            },
+            {
+                'internalType': 'string',
+                'name': 'symbol',
+                'type': 'string',
+            },
+            {
+                'internalType': 'uint256',
+                'name': 'initialAssetValue',
+                'type': 'uint256',
+            },
+            {
+                'internalType': 'uint256',
+                'name': 'maxSupply',
+                'type': 'uint256',
+            },
+            {
+                'internalType': 'address',
+                'name': 'tokenOwner',
+                'type': 'address',
+            },
+        ],
+        'name': 'createRealEstateToken',
+        'outputs': [],
+        'stateMutability': 'nonpayable',
+        'type': 'function',
+    },
+    {
+        'inputs': [],
+        'name': 'getAllRealEstateContracts',
+        'outputs': [
+            {
+                'internalType': 'address[]',
+                'name': '',
+                'type': 'address[]',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [
+            {
+                'internalType': 'uint256',
+                'name': 'index',
+                'type': 'uint256',
+            },
+        ],
+        'name': 'getRealEstateContractByIndex',
+        'outputs': [
+            {
+                'internalType': 'address',
+                'name': '',
+                'type': 'address',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [],
+        'name': 'getRealEstateContractsCount',
+        'outputs': [
+            {
+                'internalType': 'uint256',
+                'name': '',
+                'type': 'uint256',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [
+            {
+                'internalType': 'address',
+                'name': 'tokenAddress',
+                'type': 'address',
+            },
+        ],
+        'name': 'getRealEstateTokenDetails',
+        'outputs': [
+            {
+                'internalType': 'string',
+                'name': '',
+                'type': 'string',
+            },
+            {
+                'internalType': 'string',
+                'name': '',
+                'type': 'string',
+            },
+            {
+                'internalType': 'uint256',
+                'name': '',
+                'type': 'uint256',
+            },
+            {
+                'internalType': 'uint256',
+                'name': '',
+                'type': 'uint256',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [],
+        'name': 'owner',
+        'outputs': [
+            {
+                'internalType': 'address',
+                'name': '',
+                'type': 'address',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [
+            {
+                'internalType': 'uint256',
+                'name': '',
+                'type': 'uint256',
+            },
+        ],
+        'name': 'realEstateContracts',
+        'outputs': [
+            {
+                'internalType': 'address',
+                'name': '',
+                'type': 'address',
+            },
+        ],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [],
+        'name': 'renounceOwnership',
+        'outputs': [],
+        'stateMutability': 'nonpayable',
+        'type': 'function',
+    },
+    {
+        'inputs': [
+            {
+                'internalType': 'address',
+                'name': 'newOwner',
+                'type': 'address',
+            },
+        ],
+        'name': 'transferOwnership',
+        'outputs': [],
+        'stateMutability': 'nonpayable',
+        'type': 'function',
     },
 ] as const;

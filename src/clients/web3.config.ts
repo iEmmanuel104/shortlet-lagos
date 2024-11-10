@@ -8,7 +8,7 @@ import {
     type Hash,
     decodeEventLog,
 } from 'viem';
-import { baseSepolia as CONTRACT_CHAIN } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import {
     REAL_ESTATE_FACTORY_ABI,
@@ -16,6 +16,7 @@ import {
     FACTORY_CONTRACT_ADDRESS,
     BASE_USDC_CONTRACT_ADDRESS,
     PRIVATE_KEY,
+    FACTORY_WALLET_ADDRESS_FOR_PK,
 } from '../utils/abis';
 import { logger } from '../utils/logger';
 
@@ -27,13 +28,6 @@ export interface ICreateTokenParams {
     ownerAddress: string;
 }
 
-export type TokenDetails = {
-    name: string;
-    symbol: string;
-    assetValue: bigint;
-    maxSupply: bigint;
-};
-
 class Web3ClientConfig {
     private static publicClient: PublicClient;
     private static walletClient: WalletClient;
@@ -41,24 +35,43 @@ class Web3ClientConfig {
 
     static initialize() {
         try {
-            // Initialize public client with transport
+            // Create the account from private key
+            const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
+
+            logger.info('Derived address from private key:', account.address);
+            if (account.address.toLowerCase() !== FACTORY_WALLET_ADDRESS_FOR_PK.toLowerCase()) {
+                logger.error('Private key does not match expected account address');
+                throw new Error('Account address mismatch');
+            }
+
+            // Initialize public client with transport and proper RPC URL
             this.publicClient = createPublicClient({
-                chain: CONTRACT_CHAIN,
-                transport: http(),
+                chain: baseSepolia,
+                transport: http('https://base-sepolia-rpc.publicnode.com', {
+                    batch: false,
+                    retryCount: 3,
+                    retryDelay: 1000,
+                    timeout: 30000,
+                }),
             } as const) as PublicClient;
 
-            // Initialize wallet client
+            // Initialize wallet client for server-side transactions
             this.walletClient = createWalletClient({
-                chain: CONTRACT_CHAIN,
-                transport: http(),
+                account,
+                chain: baseSepolia,
+                transport: http('https://base-sepolia-rpc.publicnode.com', {
+                    batch: false,
+                    retryCount: 3,
+                    retryDelay: 1000,
+                    timeout: 30000,
+                }),
             });
 
-            // Set up account
-            const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
             this.account = account.address;
+            logger.info('Web3 clients initialized successfully');
 
         } catch (error) {
-            console.error('Failed to initialize Web3 clients:', error);
+            logger.error('Failed to initialize Web3 clients:', error);
             throw error;
         }
     }
@@ -69,16 +82,28 @@ class Web3ClientConfig {
                 throw new Error('Web3 client not initialized');
             }
 
+            // Log the account being used
+            logger.info('Using account for transaction:', this.account);
+
+            // Log the attempt
+            logger.info('Attempting to create property token with params:', {
+                name,
+                symbol,
+                initialAssetValue,
+                maxSupply,
+                ownerAddress,
+            });
+
             // Convert parameters to correct types
             const args = [
                 name,
                 symbol,
-                BigInt(initialAssetValue * 1e6),
+                BigInt(initialAssetValue),
                 BigInt(maxSupply),
                 ownerAddress as Address,
             ] as const;
 
-            // Simulate the transaction with correct types
+            // First, simulate the transaction
             const { request } = await this.publicClient.simulateContract({
                 account: this.account,
                 address: FACTORY_CONTRACT_ADDRESS as Address,
@@ -87,13 +112,23 @@ class Web3ClientConfig {
                 args,
             });
 
-            // Send the transaction
+            logger.info('Contract simulation successful, preparing transaction with request...', request);
+
+            // Send the transaction with the estimated gas
             const hash = await this.walletClient.writeContract(request);
 
-            // Wait for receipt
-            const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+            logger.info(`Transaction submitted with hash: ${hash}`);
 
-            // Find and decode the event
+            // Wait for receipt
+            const receipt = await this.publicClient.waitForTransactionReceipt({
+                hash,
+                timeout: 60_000,
+                retryCount: 3,
+            });
+
+            logger.info(`Transaction confirmed in block ${receipt.blockNumber}`);
+
+            // Find the token creation event
             const event = receipt.logs.find(log => {
                 try {
                     const decoded = decodeEventLog({
@@ -108,7 +143,7 @@ class Web3ClientConfig {
             });
 
             if (!event) {
-                throw new Error('Token creation event not found');
+                throw new Error('Token creation event not found in transaction receipt');
             }
 
             const decodedEvent = decodeEventLog({
@@ -118,13 +153,16 @@ class Web3ClientConfig {
             });
 
             if (!decodedEvent.args || !('newTokenAddress' in decodedEvent.args)) {
-                throw new Error('Invalid event data');
+                throw new Error('Invalid event data: newTokenAddress not found in event args');
             }
 
-            return decodedEvent.args.newTokenAddress as Address;
+            const newTokenAddress = decodedEvent.args.newTokenAddress as Address;
+            logger.info(`Token created successfully at address: ${newTokenAddress}`);
+
+            return newTokenAddress;
 
         } catch (error) {
-            console.error('Error creating property token:', error);
+            logger.error('Error creating property token:', error);
             throw error;
         }
     }
@@ -144,7 +182,7 @@ class Web3ClientConfig {
 
             return balance;
         } catch (error) {
-            console.error('Error getting USDC balance:', error);
+            logger.error('Error getting USDC balance:', error);
             throw error;
         }
     }
@@ -164,30 +202,48 @@ class Web3ClientConfig {
             });
 
             const hash = await this.walletClient.writeContract(request);
-            await this.publicClient.waitForTransactionReceipt({ hash });
+            await this.publicClient.waitForTransactionReceipt({
+                hash,
+                timeout: 30_000,
+                retryCount: 3,
+            });
 
             return hash;
         } catch (error) {
-            console.error('Error approving USDC spending:', error);
+            logger.error('Error approving USDC spending:', error);
+            throw error;
+        }
+    }
+
+    static async getFactoryUSDCAddress(): Promise<Address> {
+        try {
+            if (!this.publicClient) {
+                throw new Error('Web3 client not initialized');
+            }
+
+            const usdcAddress = await this.publicClient.readContract({
+                address: FACTORY_CONTRACT_ADDRESS as Address,
+                abi: REAL_ESTATE_FACTORY_ABI,
+                functionName: 'USDC_ADDRESS',
+            }) as Address;
+
+            logger.info('Retrieved USDC address from factory:', usdcAddress);
+            return usdcAddress;
+        } catch (error) {
+            logger.error('Error getting USDC address from factory:', error);
             throw error;
         }
     }
 }
 
-// // Initialize when imported
-// Web3ClientConfig.initialize();
-
-export default Web3ClientConfig;
-
-
-// Maximum number of retry attempts for Web3 initialization
+// Retry configuration
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 5000; // 5 seconds
 
 export async function initializeWeb3(attempt: number = 1): Promise<void> {
     try {
         await Web3ClientConfig.initialize();
-        logger.info('Web3 client initialized successfully');
+
     } catch (error) {
         logger.error(`Failed to initialize Web3 client (attempt ${attempt}/${MAX_RETRY_ATTEMPTS}):`, error);
 
@@ -200,3 +256,5 @@ export async function initializeWeb3(attempt: number = 1): Promise<void> {
         }
     }
 }
+
+export default Web3ClientConfig;
