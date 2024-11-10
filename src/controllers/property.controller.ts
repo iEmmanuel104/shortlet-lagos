@@ -301,7 +301,7 @@ export default class PropertyController {
         });
     }
 
-    static async reviewProperty(req: AuthenticatedRequest, res: Response) {
+    static async reviewProperty(req: Request, res: Response) {
         const { id } = req.params;
         const { approved, rejectionReason } = req.body;
 
