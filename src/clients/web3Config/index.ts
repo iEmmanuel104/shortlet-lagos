@@ -3,7 +3,6 @@ import { ethers } from 'ethers';
 import {
     RealEstateFactoryContract,
     USDCContract,
-    // RealEstateTokenContract,
     ICreateTokenParams,
 } from './interface';
 import {
@@ -11,12 +10,12 @@ import {
     getUSDCContractInstance,
     getRealEstateTokenInstance,
     getWalletSigner,
-    // provider,
+    initializeContracts,
 } from './contracts';
 import { logger } from '../../utils/logger';
-import {
-    PRIVATE_KEY,
-} from './abis';
+import { PRIVATE_KEY } from './abis';
+import { BadRequestError, InternalServerError, UnprocessableEntityError } from '../../utils/customErrors';
+import { handleWeb3Error } from './errorHandler';
 
 class Web3ClientConfig {
     private static wallet: ethers.Wallet | null = null;
@@ -25,6 +24,10 @@ class Web3ClientConfig {
 
     static async initialize() {
         try {
+
+            // Initialize contracts first
+            await initializeContracts();
+
             // Initialize wallet
             this.wallet = await getWalletSigner(PRIVATE_KEY);
 
@@ -36,7 +39,7 @@ class Web3ClientConfig {
 
         } catch (error) {
             logger.error('Failed to initialize Web3 client:', error);
-            throw error;
+            handleWeb3Error(error);
         }
     }
 
@@ -49,15 +52,11 @@ class Web3ClientConfig {
     }: ICreateTokenParams): Promise<string> {
         try {
             if (!this.factoryContractWithSigner) {
-                throw new Error('Factory contract not initialized');
+                throw new InternalServerError('Factory contract not initialized');
             }
 
             logger.info('Creating property token with params:', {
-                name,
-                symbol,
-                initialAssetValue,
-                maxSupply,
-                ownerAddress,
+                name, symbol, initialAssetValue, maxSupply, ownerAddress,
             });
 
             const tx = await this.factoryContractWithSigner.createRealEstateToken(
@@ -70,17 +69,47 @@ class Web3ClientConfig {
 
             logger.info(`Transaction submitted with hash: ${tx.hash}`);
 
-            const receipt = await tx.wait();
+            // Wait for transaction confirmation
+            const receipt = await tx.wait(1);
             if (!receipt) {
-                throw new Error('Transaction receipt not found');
+                throw new InternalServerError('Transaction receipt not found');
             }
 
             logger.info(`Transaction confirmed in block ${receipt.blockNumber}`);
 
-            // Find the token creation event
-            const event = receipt.logs.find((log: ethers.Log) => {
+            // Enhanced event parsing
+            const tokenCreatedEvent = await this.parseTokenCreatedEvent(receipt);
+            if (!tokenCreatedEvent) {
+                throw new UnprocessableEntityError('Failed to parse token creation event');
+            }
+
+            logger.info(`Token created successfully at address: ${tokenCreatedEvent}`);
+            return tokenCreatedEvent;
+
+        } catch (error) {
+            logger.error('Error creating property token:', error);
+            handleWeb3Error(error);
+        }
+    }
+
+    private static async parseTokenCreatedEvent(receipt: ethers.ContractTransactionReceipt): Promise<string> {
+        try {
+            if (!this.factoryContractWithSigner) {
+                throw new Error('Factory contract not initialized');
+            }
+
+            // Get the event signature
+            const eventInterface = this.factoryContractWithSigner.interface;
+            const eventFragment = eventInterface.getEvent('RealEstateTokenCreated');
+
+            if (!eventFragment) {
+                throw new Error('RealEstateTokenCreated event not found in contract interface');
+            }
+
+            // Find the relevant log
+            const relevantLog = receipt.logs.find(log => {
                 try {
-                    const parsedLog = this.factoryContractWithSigner?.interface.parseLog({
+                    const parsedLog = eventInterface.parseLog({
                         topics: [...log.topics],
                         data: log.data,
                     });
@@ -90,25 +119,24 @@ class Web3ClientConfig {
                 }
             });
 
-            if (!event) {
-                throw new Error('Token creation event not found in transaction receipt');
+            if (!relevantLog) {
+                throw new Error('Token creation event log not found');
             }
 
-            const parsedEvent = this.factoryContractWithSigner.interface.parseLog({
-                topics: [...event.topics],
-                data: event.data,
+            // Parse the event
+            const parsedEvent = eventInterface.parseLog({
+                topics: [...relevantLog.topics],
+                data: relevantLog.data,
             });
 
-            if (!parsedEvent || !parsedEvent.args || !parsedEvent.args['newTokenAddress']) {
-                throw new Error('Invalid event data: newTokenAddress not found in event args');
+            if (!parsedEvent?.args?.newTokenAddress) {
+                throw new Error('newTokenAddress not found in event args');
             }
 
-            const newTokenAddress = parsedEvent.args['newTokenAddress'] as string;
-            logger.info(`Token created successfully at address: ${newTokenAddress}`);
-            return newTokenAddress;
+            return parsedEvent.args.newTokenAddress as string;
 
         } catch (error) {
-            logger.error('Error creating property token:', error);
+            logger.error('Error parsing token created event:', error);
             throw error;
         }
     }
@@ -264,15 +292,16 @@ const RETRY_DELAY = 5000; // 5 seconds
 export async function initializeWeb3(attempt: number = 1): Promise<void> {
     try {
         await Web3ClientConfig.initialize();
+
     } catch (error) {
         logger.error(`Failed to initialize Web3 client (attempt ${attempt}/${MAX_RETRY_ATTEMPTS}):`, error);
 
         if (attempt < MAX_RETRY_ATTEMPTS) {
             logger.info(`Retrying Web3 initialization in ${RETRY_DELAY / 1000} seconds...`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-            await initializeWeb3();
+            await initializeWeb3(attempt + 1);
         } else {
-            throw new Error('Failed to initialize Web3 client after maximum retry attempts');
+            throw new BadRequestError('Failed to initialize Web3 client after maximum retry attempts');
         }
     }
 }
