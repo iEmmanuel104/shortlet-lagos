@@ -2,36 +2,61 @@ import app from './app';
 import { initiateDB } from './models';
 import { logger } from './utils/logger';
 import { initializeWeb3 } from './clients/web3Config';
-// import { redisClient } from './utils/redis';
+import { cleanup } from './clients/web3Config/contracts';
 
-// Asynchronous function to start the server
 async function startServer(): Promise<void> {
     try {
-        // await redisClient.on('connect', () => {
-        //     logger.info('Connection to REDIS database successful');
-        // });
         // Initiate a connection to the database
         await initiateDB();
 
         // Initialize Web3 client with retry logic
         await initializeWeb3();
 
-        // Start the server and listen on port 8080
-        app.listen(process.env.PORT || 8090, () => {
-            logger.info(`Server is running on Port ${process.env.PORT || 8088}`);
+        const server = app.listen(process.env.PORT || 8090, () => {
+            logger.info(`Server is running on Port ${process.env.PORT || 8090}`);
         });
+
+        // Handle graceful shutdown
+        const shutdownGracefully = async (signal: string) => {
+            logger.info(`${signal} received. Starting graceful shutdown...`);
+
+            // Close the HTTP server
+            server.close(() => {
+                logger.info('HTTP server closed');
+            });
+
+            // Cleanup Web3 resources
+            cleanup();
+
+            // Add any other cleanup here (e.g., database connections)
+
+            logger.info('Graceful shutdown completed');
+
+            // Only exit for specific signals
+            if (signal === 'SIGTERM' || signal === 'SIGINT') {
+                process.exit(0);
+            }
+        };
+
+        // Handle different termination signals
+        process.on('SIGTERM', () => shutdownGracefully('SIGTERM'));
+        process.on('SIGINT', () => shutdownGracefully('SIGINT'));
+
+        // Handle uncaught errors
+        process.on('uncaughtException', (error) => {
+            logger.error('Uncaught Exception:', error);
+            shutdownGracefully('UNCAUGHT_EXCEPTION');
+        });
+
+        // Handle unhandled rejections without shutting down
+        process.on('unhandledRejection', (reason, promise) => {
+            logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+            // Log but don't shutdown for unhandled rejections
+            // This allows the application to continue running
+        });
+
     } catch (err) {
-        console.log(err);
-        logger.error(err);
-        // exit redis client
-        // redisClient.quit((err, result) => {
-        //     if (err) {
-        //         console.error('Error quitting Redis:', err);
-        //     } else {
-        //         console.log('Redis instance has been stopped:', result);
-        //     }
-        // });
-        // Exit the process with a non-zero status code to indicate an error
+        logger.error('Failed to start server:', err);
         process.exit(1);
     }
 }
