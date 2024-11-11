@@ -618,29 +618,24 @@ export default class PropertyService {
         rejectionReason?: string
     ): Promise<Property> {
         if (approved) {
-            try {
-                // Create property token when approved
-                const tokenParams: ICreateTokenParams = {
-                    name: `${property.name} Token`,
-                    symbol: property.name.substring(0, 3).toUpperCase() + 'TKN',
-                    initialAssetValue: property.metrics.TIG, // Total Investment Goal as initial value
-                    maxSupply: property.tokenomics?.totalTokenSupply || 1000000, // Use tokenomics or default
-                    ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
-                };
+            // Create property token when approved
+            const tokenParams: ICreateTokenParams = {
+                name: `${property.name} Token`,
+                symbol: property.name.substring(0, 3).toUpperCase() + 'TKN',
+                initialAssetValue: property.metrics.TIG, // Total Investment Goal as initial value
+                maxSupply: property.tokenomics?.totalTokenSupply || 1000000, // Use tokenomics or default
+                ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
+            };
 
-                await Web3ClientConfig.getFactoryUSDCAddress();
-                const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
+            await Web3ClientConfig.getFactoryUSDCAddress();
+            const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
 
-                // Update property with contract address and status
-                await property.update({
-                    status: PropertyStatus.PUBLISHED,
-                    contractAddress: contractAddress,
-                });
+            // Update property with contract address and status
+            await property.update({
+                status: PropertyStatus.PUBLISHED,
+                contractAddress: contractAddress,
+            });
 
-            } catch (error) {
-                console.error('Failed to create property token:', error);
-                throw new Error('Failed to create property token on blockchain');
-            }
         } else {
             // Update property status back to draft and store rejection reason
             if (!rejectionReason) {
