@@ -20,7 +20,7 @@ export interface IViewPropertiesQuery {
     ownerId?: string;
     rentalYield?: number;
     estimatedReturn?: number;
-    status?: PropertyStatus;
+    status?: PropertyStatus | PropertyStatus[];
 }
 
 export default class PropertyService {
@@ -156,11 +156,18 @@ export default class PropertyService {
         }
 
         // handle status filter
-        if (status !== undefined) {
-            where = {
-                ...where,
-                status,
-            };
+        if (status) {
+            if (Array.isArray(status)) {
+                where = {
+                    ...where,
+                    status: { [Op.in]: status },
+                };
+            } else {
+                where = {
+                    ...where,
+                    status: status,
+                };
+            }
         }
 
         // Price range handling

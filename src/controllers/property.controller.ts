@@ -12,6 +12,28 @@ export default class PropertyController {
     static async getAllProperties(req: Request, res: Response) {
         const { page, size, q, category, minPrice, maxPrice, ownerId, rentalYield, estimatedReturn, status } = req.query;
 
+        // Handle status as either string or string array
+        let processedStatus: PropertyStatus | PropertyStatus[] | undefined;
+        if (status) {
+            if (Array.isArray(status)) {
+                // Handle array of statuses
+                processedStatus = status.map(s => {
+                    const statusValue = PropertyStatus[s as keyof typeof PropertyStatus];
+                    if (!statusValue) {
+                        throw new BadRequestError(`Invalid status value: ${s}`);
+                    }
+                    return statusValue;
+                });
+            } else {
+                // Handle single status
+                const statusValue = PropertyStatus[status as string as keyof typeof PropertyStatus];
+                if (!statusValue) {
+                    throw new BadRequestError(`Invalid status value: ${status}`);
+                }
+                processedStatus = statusValue;
+            }
+        }
+
         const queryParams: IViewPropertiesQuery = {
             ...(page && { page: Number(page) }),
             ...(size && { size: Number(size) }),
@@ -22,7 +44,7 @@ export default class PropertyController {
             ...(ownerId && { ownerId: String(ownerId) }),
             ...(rentalYield && { rentalYield: Number(rentalYield) }),
             ...(estimatedReturn && { estimatedReturn: Number(estimatedReturn) }),
-            ...(status && { status: PropertyStatus[status as keyof typeof PropertyStatus] }),
+            ...(processedStatus && { status: processedStatus }),
         };
 
         const properties = await PropertyService.viewProperties(queryParams);
@@ -40,7 +62,7 @@ export default class PropertyController {
             throw new BadRequestError('Property ID is required');
         }
 
-        const isUserRequest = !!(req as AuthenticatedRequest).user; 
+        const isUserRequest = !!(req as AuthenticatedRequest).user;
 
         const property = await PropertyService.viewProperty(id, isUserRequest);
         res.status(200).json({
