@@ -13,25 +13,20 @@ export default class PropertyController {
         const { page, size, q, category, minPrice, maxPrice, ownerId, rentalYield, estimatedReturn, status } = req.query;
 
         // Handle status as either string or string array
-        let processedStatus: PropertyStatus | PropertyStatus[] | undefined;
+        const validStatusSet = new Set(Object.values(PropertyStatus));
+
+        // Process status: convert comma-separated string to array of unique PropertyStatus values
+        let processedStatus: PropertyStatus[] | undefined;
         if (status) {
-            if (Array.isArray(status)) {
-                // Handle array of statuses
-                processedStatus = status.map(s => {
-                    const statusValue = PropertyStatus[s as keyof typeof PropertyStatus];
-                    if (!statusValue) {
-                        throw new BadRequestError(`Invalid status value: ${s}`);
-                    }
-                    return statusValue;
-                });
-            } else {
-                // Handle single status
-                const statusValue = PropertyStatus[status as string as keyof typeof PropertyStatus];
-                if (!statusValue) {
-                    throw new BadRequestError(`Invalid status value: ${status}`);
-                }
-                processedStatus = statusValue;
-            }
+            // Split and validate unique values
+            processedStatus = [...new Set(
+                String(status)
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(s => validStatusSet.has(s as PropertyStatus))
+            )] as PropertyStatus[];
+
+            if (processedStatus.length === 0) processedStatus = undefined;
         }
 
         const queryParams: IViewPropertiesQuery = {

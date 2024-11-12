@@ -20,7 +20,7 @@ export interface IViewPropertiesQuery {
     ownerId?: string;
     rentalYield?: number;
     estimatedReturn?: number;
-    status?: PropertyStatus | PropertyStatus[];
+    status?: PropertyStatus[];
 }
 
 export default class PropertyService {
@@ -157,6 +157,8 @@ export default class PropertyService {
 
         // handle status filter
         if (status) {
+
+            console.log(status);
             if (Array.isArray(status)) {
                 where = {
                     ...where,
