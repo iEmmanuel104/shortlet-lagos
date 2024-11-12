@@ -20,8 +20,11 @@ class ContractsManager {
     private static factoryContract: RealEstateFactoryContract | null = null;
     private static usdcContract: USDCContract | null = null;
     private static isInitialized: boolean = false;
-    private static connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
-    private static reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    private static connectionCheckInterval: NodeJS.Timeout | null = null;
+    private static reconnectTimeout: NodeJS.Timeout | null = null;
+    private static lastBlockNumber: number = 0;
+    private static consecutiveFailures: number = 0;
+    private static readonly MAX_CONSECUTIVE_FAILURES = 3;
 
     static async initialize() {
         if (this.isInitialized) {
@@ -29,19 +32,31 @@ class ContractsManager {
         }
 
         const maxRetries = 3;
-        const retryDelay = 5000;
+        const retryDelay = 300000; // 5 minutes
 
         for (let i = 0; i < maxRetries; i++) {
             try {
-                // Initialize provider
-                this.provider = new ethers.JsonRpcProvider(BASE_SEPOLIA_RPC, {
-                    chainId: 84532,
-                    name: 'base-sepolia',
-                });
+                // Initialize provider with better options
+                this.provider = new ethers.JsonRpcProvider(
+                    BASE_SEPOLIA_RPC,
+                    {
+                        chainId: 84532,
+                        name: 'base-sepolia',
+                    },
+                    {
+                        // staticNetwork: true,
+                        polling: true,
+                        // pollingInterval: 4000, // 4 seconds
+                        batchMaxCount: 1, // Limit concurrent requests
+                        // cacheTimeout: 2000, // 2 seconds cache
+                    }
+                );
 
-                // Test the connection
+
+                // Test the connection and store initial block number
                 const network = await this.provider.getNetwork();
-                logger.info('Connected to network:', network.name);
+                this.lastBlockNumber = await this.provider.getBlockNumber();
+                logger.info('Connected to network:', network.name, 'at block:', this.lastBlockNumber);
 
                 // Initialize base contract instances
                 this.factoryContract = new ethers.Contract(
@@ -60,6 +75,7 @@ class ContractsManager {
                 this.startConnectionMonitoring();
 
                 this.isInitialized = true;
+                this.consecutiveFailures = 0; // Reset failure counter on successful initialization
                 logger.info('Contracts manager initialized successfully');
                 return;
 
@@ -74,30 +90,50 @@ class ContractsManager {
         }
     }
 
+    private static async isConnectionValid(): Promise<boolean> {
+        try {
+            if (!this.provider) return false;
+
+            const currentBlockNumber = await this.provider.getBlockNumber();
+            const isProgressingChain = currentBlockNumber >= this.lastBlockNumber;
+            this.lastBlockNumber = currentBlockNumber;
+
+            return isProgressingChain;
+        } catch {
+            return false;
+        }
+    }
+
     private static startConnectionMonitoring() {
         // Clear existing interval if it exists
         if (this.connectionCheckInterval) {
             clearInterval(this.connectionCheckInterval);
-            this.connectionCheckInterval = null;
         }
 
-        // Check connection every 30 seconds
+        // Check connection every minute
         this.connectionCheckInterval = setInterval(async () => {
             try {
-                if (!this.provider) {
-                    throw new BadRequestError('Provider not initialized');
+                if (!await this.isConnectionValid()) {
+                    this.consecutiveFailures++;
+                    logger.info(`Connection check failed. Consecutive failures: ${this.consecutiveFailures}`);
+
+                    if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+                        void this.handleConnectionError();
+                    }
+                } else {
+                    if (this.consecutiveFailures > 0) {
+                        logger.info('Connection restored');
+                    }
+                    this.consecutiveFailures = 0;
                 }
-                const network = await this.provider.getNetwork();
-                const blockNumber = await this.provider.getBlockNumber();
-                logger.debug('Connection check passed:', {
-                    network: network.name,
-                    blockNumber,
-                });
             } catch (error) {
-                logger.error('Connection check failed:', error);
-                void this.handleConnectionError();
+                logger.error('Connection monitoring error:', error);
+                this.consecutiveFailures++;
+                if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+                    void this.handleConnectionError();
+                }
             }
-        }, 30000); // 30 seconds
+        }, 60000); // Check every minute
     }
 
     private static async handleConnectionError() {
@@ -105,18 +141,19 @@ class ContractsManager {
             return; // Already attempting to reconnect
         }
 
-        logger.info('Attempting to reconnect...');
-        this.cleanup();
+        logger.info('Connection unstable - initiating reconnection...');
 
+        // Set reconnection timeout
         this.reconnectTimeout = setTimeout(async () => {
             try {
+                this.cleanup(false); // Cleanup but don't log
                 await this.initialize();
                 this.reconnectTimeout = null;
             } catch (error) {
                 logger.error('Reconnection failed:', error);
-                // Try again in 5 seconds
                 this.reconnectTimeout = null;
-                void this.handleConnectionError();
+                // Reset consecutive failures to prevent immediate retry
+                this.consecutiveFailures = 0;
             }
         }, 5000);
     }
@@ -127,6 +164,7 @@ class ContractsManager {
         }
     }
 
+    // Rest of the getter methods remain the same
     static getProvider(): ethers.JsonRpcProvider {
         this.ensureInitialized();
         if (!this.provider) {
@@ -151,7 +189,6 @@ class ContractsManager {
         return this.usdcContract;
     }
 
-    // Contract instance getters with signer support
     static getFactoryContractInstance(signerOrProvider?: ethers.Signer | ethers.Provider): RealEstateFactoryContract {
         const contract = this.getFactoryContract();
         if (signerOrProvider) {
@@ -185,8 +222,7 @@ class ContractsManager {
         return new ethers.Wallet(privateKey, this.getProvider());
     }
 
-    // Cleanup method
-    static cleanup() {
+    static cleanup(shouldLog: boolean = true) {
         if (this.connectionCheckInterval) {
             clearInterval(this.connectionCheckInterval);
             this.connectionCheckInterval = null;
@@ -204,7 +240,11 @@ class ContractsManager {
         this.factoryContract = null;
         this.usdcContract = null;
         this.isInitialized = false;
-        logger.info('ContractsManager cleaned up');
+        this.consecutiveFailures = 0;
+
+        if (shouldLog) {
+            logger.info('ContractsManager cleaned up');
+        }
     }
 }
 

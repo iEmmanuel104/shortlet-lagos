@@ -55,10 +55,6 @@ class Web3ClientConfig {
                 throw new InternalServerError('Factory contract not initialized');
             }
 
-            logger.info('Creating property token with params:', {
-                name, symbol, initialAssetValue, maxSupply, ownerAddress,
-            });
-
             const tx = await this.factoryContractWithSigner.createRealEstateToken(
                 name,
                 symbol,
@@ -66,8 +62,6 @@ class Web3ClientConfig {
                 BigInt(maxSupply),
                 ownerAddress
             );
-
-            logger.info(`Transaction submitted with hash: ${tx.hash}`);
 
             // Wait for transaction confirmation
             const receipt = await tx.wait(1);
