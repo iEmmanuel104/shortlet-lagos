@@ -20,6 +20,11 @@ export enum UserType {
     PROJECT_OWNER = 'project_owner',
 }
 
+export enum WalletConnectionTypeOptions {
+    WALLET_CONNECT = 'wallet_connect',
+    TORONET = 'toronet',
+}
+
 @Scopes(() => ({
     withSettings: {
         include: [
@@ -180,6 +185,14 @@ export default class User extends Model<User | IUser> {
     })
         type: UserType;
 
+    @Column({
+        type: DataType.ENUM,
+        values: Object.values(UserType),
+        allowNull: false,
+        defaultValue: WalletConnectionTypeOptions.WALLET_CONNECT,
+    })
+        walletConnectionType: WalletConnectionTypeOptions;
+
     @Column({ type: DataType.STRING })
         referralBonus: string;
 
@@ -274,5 +287,6 @@ export interface IUser {
         country: string;
     };
     type: UserType;
+    walletConnectionType: WalletConnectionTypeOptions;
     referralBonus?: string;
 }

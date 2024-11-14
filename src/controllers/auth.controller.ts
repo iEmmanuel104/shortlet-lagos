@@ -13,7 +13,7 @@ import { SIGNATURE_MESSAGE } from '../utils/constants';
 export default class AuthController {
 
     static async signup(req: Request, res: Response) {
-        const { walletAddress, username, type, referralName, phone, address } = req.body;
+        const { walletAddress, username, type, referralName, phone, address, walletConnectionType } = req.body;
 
         // check if the type atches any in the enum
         if (!Object.values(UserType).includes(type)) {
@@ -37,6 +37,7 @@ export default class AuthController {
             type,
             phone,
             address,
+            walletConnectionType,
         });
 
         if (referralName) {

@@ -82,7 +82,7 @@ export default class PropertyService {
             {
                 model: User,
                 as: 'owner',
-                attributes: ['id', 'username', 'email', 'walletAddress'],
+                attributes: ['id', 'username', 'email', 'walletAddress', 'walletConnectionType'],
             },
             {
                 model: Investment,
