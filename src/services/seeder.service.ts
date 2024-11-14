@@ -1,6 +1,6 @@
 import { Op, QueryTypes, Sequelize, Transaction } from 'sequelize';
 import { faker } from '@faker-js/faker';
-import User, { UserType } from '../models/user.model';
+import User, { UserType, WalletConnectionTypeOptions } from '../models/user.model';
 import Property, { PropertyStatus } from '../models/property.model';
 import Investment, { IInvestment, InvestmentStatus } from '../models/investment.model';
 import PropertyStats from '../models/propertyStats.model';
@@ -86,6 +86,7 @@ export default class SeederService {
                 lastName: faker.person.lastName(),
                 username: faker.internet.username().toLowerCase(),
                 type: UserType.INVESTOR,
+                walletConnectionType: WalletConnectionTypeOptions.WALLET_CONNECT,
                 status: {
                     activated: true,
                     emailVerified: true,
@@ -130,6 +131,7 @@ export default class SeederService {
                 lastName: faker.person.lastName(),
                 username: faker.internet.username().toLowerCase(),
                 type: UserType.PROJECT_OWNER,
+                walletConnectionType: WalletConnectionTypeOptions.WALLET_CONNECT,
                 status: {
                     activated: true,
                     emailVerified: true,

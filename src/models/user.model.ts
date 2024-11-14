@@ -187,7 +187,7 @@ export default class User extends Model<User | IUser> {
 
     @Column({
         type: DataType.ENUM,
-        values: Object.values(UserType),
+        values: Object.values(WalletConnectionTypeOptions),
         allowNull: false,
         defaultValue: WalletConnectionTypeOptions.WALLET_CONNECT,
     })
