@@ -334,9 +334,9 @@ export default class PropertyController {
         const property = await PropertyService.viewProperty(id);
 
         // Validate property is in review status
-        if (property.status !== PropertyStatus.UNDER_REVIEW) {
-            throw new BadRequestError('Only properties under review can be processed');
-        }
+        // if (property.status !== PropertyStatus.UNDER_REVIEW) {
+        //     throw new BadRequestError('Only properties under review can be processed');
+        // }
 
         const updatedProperty = await PropertyService.reviewProperty(property, approved, rejectionReason);
 

@@ -9,6 +9,7 @@ import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
 import { IPropertyOwnerStats, IPropertyOwnerStatsWithTimeSeries, ITopPropertyInvestment, TimeBasedStats, TimePeriod } from '../utils/interface';
 import Web3ClientConfig from '../clients/web3Config';
 import { ICreateTokenParams } from '../clients/web3Config/interface';
+import { createRealEstateToken } from '../clients/web3Config/actions';
 
 export interface IViewPropertiesQuery {
     page?: number;
@@ -383,15 +384,15 @@ export default class PropertyService {
         // Calculate the start date based on period
         const startDate = new Date();
         switch (period) {
-        case TimePeriod.DAY:
-            startDate.setDate(startDate.getDate() - 30); // Last 30 days
-            break;
-        case TimePeriod.WEEK:
-            startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
-            break;
-        case TimePeriod.MONTH:
-            startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
-            break;
+            case TimePeriod.DAY:
+                startDate.setDate(startDate.getDate() - 30); // Last 30 days
+                break;
+            case TimePeriod.WEEK:
+                startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
+                break;
+            case TimePeriod.MONTH:
+                startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
+                break;
         }
 
         const stats = await Investment.findAll({
@@ -636,8 +637,16 @@ export default class PropertyService {
                 ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
             };
 
-            await Web3ClientConfig.getFactoryUSDCAddress();
-            const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
+            // await Web3ClientConfig.getFactoryUSDCAddress();
+            // const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
+            const contractAddress = await createRealEstateToken({
+                propertyName: tokenParams.name,
+                symbol: tokenParams.symbol,
+                initialAssetValue: tokenParams.initialAssetValue,
+                maxSupply: tokenParams.maxSupply,
+                tokenOwner: tokenParams.ownerAddress,
+                network: 'testnet',
+            });
 
             // Update property with contract address and status
             await property.update({

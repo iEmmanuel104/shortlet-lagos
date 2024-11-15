@@ -1,0 +1,10 @@
+{
+  "testnet": {
+    "rpc": "https://testnet.toronet.org/rpc/",
+    "contractAddress": "0xff0dFAe9c45EeB5cA5d269BE47eea69eab99bf6C"
+  },
+  "mainnet": {
+    "rpc": "https://toronet.org/rpc/",
+    "contractAddress": "0x1e4bC9f5c9a6c4F484a30ff2ad17f64E73684C77"
+  }
+}

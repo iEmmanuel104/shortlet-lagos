@@ -10,7 +10,7 @@ async function startServer(): Promise<void> {
         await initiateDB();
 
         // Initialize Web3 client with retry logic
-        await initializeWeb3();
+        // await initializeWeb3();
 
         const server = app.listen(process.env.PORT || 8090, () => {
             logger.info(`Server is running on Port ${process.env.PORT || 8090}`);
