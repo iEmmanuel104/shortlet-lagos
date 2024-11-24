@@ -7,7 +7,7 @@ import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats, { updatePropertyVisitCount } from '../models/propertyStats.model';
 import Tokenomics, { ITokenomics } from '../models/tokenomics.model';
 import { IPropertyOwnerStats, IPropertyOwnerStatsWithTimeSeries, ITopPropertyInvestment, TimeBasedStats, TimePeriod } from '../utils/interface';
-import Web3ClientConfig from '../clients/web3Config';
+// import Web3ClientConfig from '../clients/web3Config';
 import { ICreateTokenParams } from '../clients/web3Config/interface';
 import { createRealEstateToken } from '../clients/web3Config/actions';
 
@@ -384,15 +384,15 @@ export default class PropertyService {
         // Calculate the start date based on period
         const startDate = new Date();
         switch (period) {
-            case TimePeriod.DAY:
-                startDate.setDate(startDate.getDate() - 30); // Last 30 days
-                break;
-            case TimePeriod.WEEK:
-                startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
-                break;
-            case TimePeriod.MONTH:
-                startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
-                break;
+        case TimePeriod.DAY:
+            startDate.setDate(startDate.getDate() - 30); // Last 30 days
+            break;
+        case TimePeriod.WEEK:
+            startDate.setDate(startDate.getDate() - 84); // Last 12 weeks
+            break;
+        case TimePeriod.MONTH:
+            startDate.setMonth(startDate.getMonth() - 12); // Last 12 months
+            break;
         }
 
         const stats = await Investment.findAll({
