@@ -23,6 +23,6 @@ router.use('/blog', blogRoutes);
 router.use('/verification', verificationRoutes);
 router.use('/withdrawal-request', withdrawalRequestRoutes);
 router.use('/admin/seed', seederRoutes);  
-router.use('iamshortlet', AdminRoutes);
+router.use('/iamshortlet', AdminRoutes);
 
 export default router;

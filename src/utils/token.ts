@@ -6,7 +6,6 @@ import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './custo
 import { DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, GenerateAdminTokenData } from './interface';
 // import { CompareTokenData, DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
 import { ethers } from 'ethers';
-import Admin from '../models/admin.model';
 
 // class TokenCacheUtil {
 //     static saveTokenToCache({ key, token, expiry }: SaveTokenToCache) {
@@ -151,11 +150,11 @@ class AuthUtil {
         return token;
     }
 
-    static async generateAdminOTPToken(admin: Admin, otpCode: string) {
+    static async generateAdminOTPToken(email: string, otpCode: string) {
         const { secretKey, expiry } = this.getSecretKeyForTokenType('admin-otp');
 
         const tokenData = {
-            email: admin.email,
+            email: email,
             otpCode,
             type: 'otp_verification',
         };

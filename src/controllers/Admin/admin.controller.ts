@@ -5,20 +5,26 @@ import { BadRequestError, ForbiddenError, TokenExpiredError } from '../../utils/
 import { AuthUtil } from '../../utils/token';
 import { emailService, EmailTemplate } from '../../utils/Email';
 import UserService from '../../services/user.service';
+import { ADMIN_EMAIL } from '../../utils/constants';
 
 export default class AdminController {
 
     static async loginSuperAdmin(req: Request, res: Response) {
         const { email } = req.body;
 
-        const checkAdmin = await AdminService.getAdminByEmail(email);
-        const firstName = checkAdmin.name.split(' ')[0];
+        let emailToUse = email.toLowerCase().trim();
+        let firstName = 'Owner';
+        if (email !== ADMIN_EMAIL) {
+            const checkAdmin = await AdminService.getAdminByEmail(email);
+            emailToUse = checkAdmin.email;
+            firstName = checkAdmin.name.split(' ')[0];
+        }
 
         // Generate OTP
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         // Generate token containing the OTP
-        const otpToken = await AuthUtil.generateAdminOTPToken(checkAdmin, otpCode);
+        const otpToken = await AuthUtil.generateAdminOTPToken(emailToUse, otpCode);
 
         const templateData = {
             otpCode,
@@ -27,7 +33,7 @@ export default class AdminController {
 
         // Send email with OTP
         await emailService.send({
-            email: checkAdmin.email,
+            email: emailToUse,
             from: 'auth',
             subject: 'Admin Login Verification',
             html: await new EmailTemplate().adminLogin({ otpCode, name: firstName }),
@@ -51,10 +57,12 @@ export default class AdminController {
     static async verifySuperAdminLogin(req: Request, res: Response) {
         const { otpToken, otpCode } = req.body;
 
+        
         try {
             // Verify the OTP token and extract the original OTP
             const decoded = AuthUtil.verifyAdminOTPToken(otpToken);
-
+            console.log({ body: req.body, decoded });
+            
             if (decoded.type !== 'otp_verification') {
                 throw new BadRequestError('Invalid token type');
             }
@@ -64,18 +72,23 @@ export default class AdminController {
                 throw new BadRequestError('Invalid verification code');
             }
 
-            const checkAdmin = await AdminService.getAdminByEmail(decoded.email);
-
+            let emailToUse = decoded.email;
+            let adminData = { email: emailToUse, name: 'Owner', isSuperAdmin: true };
+            if (decoded.email !== ADMIN_EMAIL) {
+                const checkAdmin = await AdminService.getAdminByEmail(decoded.email);
+                emailToUse = checkAdmin.email;
+                adminData = checkAdmin;
+            }
             // Generate admin access token
             const adminToken = await AuthUtil.generateAdminToken({
                 type: 'admin',
-                identifier: checkAdmin.email,
+                identifier: adminData.email,
             });
 
             res.status(200).json({
                 status: 'success',
                 message: 'Admin login successful',
-                data: { adminToken, admin: checkAdmin },
+                data: { adminToken, admin: adminData },
             });
         } catch (error) {
             if (error instanceof TokenExpiredError) {
