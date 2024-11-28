@@ -1,11 +1,10 @@
 import { DecodedTokenData, ENCRYPTEDTOKEN } from '../utils/interface';
 import { Request, Response, NextFunction } from 'express';
-import { UnauthorizedError, NotFoundError, ForbiddenError } from '../utils/customErrors';
+import { UnauthorizedError, NotFoundError, ForbiddenError, TokenExpiredError } from '../utils/customErrors';
 import User from '../models/user.model';
 import UserService from '../services/user.service';
-import { logger } from '../utils/logger';
 import { AuthUtil } from '../utils/token';
-// import { AuthUtil, TokenCacheUtil } from '../utils/token';
+import jwt from 'jsonwebtoken';
 import Admin from '../models/admin.model';
 import { ADMIN_EMAIL } from '../utils/constants';
 import AdminService from '../services/AdminServices/admin.service';
@@ -76,13 +75,6 @@ export const basicAuth = function () {
 
             AuthUtil.verifyToken(jwtToken, user.walletAddress);
 
-            // const key = `${payload.tokenType}_token:${user.id}`;
-            // const cachedToken = await TokenCacheUtil.getTokenFromCache(key);
-
-            // if (cachedToken !== jwtToken) {
-            //     throw new UnauthorizedError('Invalid token');
-            // }
-
             if (user.settings.isBlocked) {
                 throw new ForbiddenError('Account blocked. Please contact support');
             }
@@ -103,43 +95,45 @@ export const basicAuth = function () {
 export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
     return async (req: Request, res: Response, next: NextFunction) => {
         const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer'))
-            return next(new UnauthorizedError('Invalid authorization header'));
+        if (!authHeader?.startsWith('Bearer')) {
+            throw new UnauthorizedError('Invalid authorization header');
+        }
 
         const jwtToken = authHeader.split(' ')[1];
 
-        const payload = AuthUtil.verifyAdminToken(jwtToken, tokenType);
+        try {
+            const payload = AuthUtil.verifyAdminToken(jwtToken, tokenType);
+            const tokenData = payload as unknown as Omit<DecodedTokenData, 'user'>;
 
-        const tokenData = payload as unknown as Omit<DecodedTokenData, 'user'>;
-        logger.payload('Admin Token data', tokenData);
+            if (tokenData.tokenType !== 'admin') {
+                throw new UnauthorizedError('You are not authorized to perform this action');
+            }
 
-        if (tokenData.tokenType !== 'admin') {
-            return next(new UnauthorizedError('You are not authorized to perform this action'));
+            let emailToUse = (tokenData.authKey as string).toLowerCase().trim();
+
+            if ((tokenData.authKey as string) !== ADMIN_EMAIL) {
+                const admin = await AdminService.getAdminByEmail(tokenData.authKey as string);
+
+                if (!admin) {
+                    throw new NotFoundError('Admin not found');
+                }
+
+                emailToUse = admin.email;
+                (req as AdminAuthenticatedRequest).admin = admin;
+                (req as AdminAuthenticatedRequest).isSuperAdmin = admin.isSuperAdmin;
+            } else {
+                (req as AdminAuthenticatedRequest).isSuperAdmin = true;
+            }
+
+            (req as AdminAuthenticatedRequest).email = emailToUse;
+
+            next();
+        } catch (error) {
+            if (error instanceof jwt.TokenExpiredError) {
+                throw new TokenExpiredError('Admin session has expired');
+            }
+            next(error);
         }
-
-        // const key = `${tokenType}_token:${tokenData.authKey}`;
-        // const token = await TokenCacheUtil.getTokenFromCache(key);
-
-        // if (token !== jwtToken) {
-        //     return next(new UnauthorizedError('You are not authorized to perform this action'));
-        // }
-
-        let emailToUse = (tokenData.authKey as string).toLowerCase().trim();
-        if ((tokenData.authKey as string) !== ADMIN_EMAIL) {
-            const admin = await AdminService.getAdminByEmail(tokenData.authKey as string);
-            emailToUse = admin.email;
-            (req as AdminAuthenticatedRequest).admin = admin;
-            (req as AdminAuthenticatedRequest).isSuperAdmin = admin.isSuperAdmin;
-        } else {
-            (req as AdminAuthenticatedRequest).isSuperAdmin = true;
-        }
-
-        (req as AdminAuthenticatedRequest).email = emailToUse;
-
-
-        logger.authorized('User authorized');
-
-        next();
     };
 };
 

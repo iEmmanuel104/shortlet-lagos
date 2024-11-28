@@ -6,6 +6,7 @@ import { UnauthorizedError, TokenExpiredError, JsonWebTokenError } from './custo
 import { DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, GenerateAdminTokenData } from './interface';
 // import { CompareTokenData, DecodedTokenData, ENCRYPTEDTOKEN, GenerateCodeData, GenerateTokenData, SaveTokenToCache, GenerateAdminTokenData } from './interface';
 import { ethers } from 'ethers';
+import Admin from '../models/admin.model';
 
 // class TokenCacheUtil {
 //     static saveTokenToCache({ key, token, expiry }: SaveTokenToCache) {
@@ -86,6 +87,9 @@ class AuthUtil {
         case 'admin':
             // 7days
             return { secretKey: JWT_ADMIN_ACCESS_SECRET, expiry: 60 * 60 * 24 * 7 };
+        case 'admin-otp':
+            // 7days
+            return { secretKey: JWT_ADMIN_ACCESS_SECRET, expiry: 60 * 10 };
         default:
             // 20min
             return { secretKey: JWT_SECRET, expiry: 60 * 20 };
@@ -147,20 +151,29 @@ class AuthUtil {
         return token;
     }
 
-    // static compareToken({ user, tokenType, token }: CompareTokenData) {
-    //     const tokenKey = `${tokenType}_token:${user.id}`;
-    //     return TokenCacheUtil.compareToken(tokenKey, token);
-    // }
+    static async generateAdminOTPToken(admin: Admin, otpCode: string) {
+        const { secretKey, expiry } = this.getSecretKeyForTokenType('admin-otp');
 
-    // static compareCode({ user, tokenType, token }: CompareTokenData) {
-    //     const tokenKey = `${tokenType}_code:${user.id}`;
-    //     return TokenCacheUtil.compareToken(tokenKey, token);
-    // }
+        const tokenData = {
+            email: admin.email,
+            otpCode,
+            type: 'otp_verification',
+        };
 
-    // static compareAdminCode({ identifier, tokenType, token }: CompareAdminTokenData) {
-    //     const tokenKey = `${tokenType}_code:${identifier}`;
-    //     return TokenCacheUtil.compareToken(tokenKey, token);
-    // }
+        return jwt.sign(tokenData, secretKey, { expiresIn: expiry }); // 10 minutes expiry
+    }
+
+    static verifyAdminOTPToken(token: string): { email: string, otpCode: string, type: string } {
+        try {
+            const { secretKey } = this.getSecretKeyForTokenType('admin-otp');
+            return jwt.verify(token, secretKey) as { email: string, otpCode: string, type: string };
+        } catch (error) {
+            if (error instanceof jwt.TokenExpiredError) {
+                throw new TokenExpiredError('OTP has expired');
+            }
+            throw new JsonWebTokenError('Invalid OTP token');
+        }
+    }
 
     static verifyToken(token: string, walletAddress: string) {
         try {

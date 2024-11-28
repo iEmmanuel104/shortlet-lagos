@@ -9,6 +9,7 @@ import verificationRoutes from './verification.routes';
 import withdrawalRequestRoutes from './withdrawalRequest.routes';
 import blogRoutes from './blog.routes';
 import seederRoutes from './Admin/seeder.routes';
+import AdminRoutes from './Admin/admin.routes';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/blog', blogRoutes);
 router.use('/verification', verificationRoutes);
 router.use('/withdrawal-request', withdrawalRequestRoutes);
 router.use('/admin/seed', seederRoutes);  
+router.use('iamshortlet', AdminRoutes);
 
 export default router;

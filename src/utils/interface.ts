@@ -9,7 +9,7 @@ export interface SaveTokenToCache {
 
 export type AuthToken = 'access' | 'refresh' | 'passwordreset' | 'emailverification' | 'setpassword' | 'adminlogin' | 'admin';
 
-export type ENCRYPTEDTOKEN = AuthToken | 'admin'
+export type ENCRYPTEDTOKEN = AuthToken | 'admin' | 'admin-otp'
 
 export type AWSUploadType = 'profile' | 'posts' | 'document' | 'other';
 
