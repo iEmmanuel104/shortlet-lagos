@@ -5,7 +5,7 @@ import User from '../models/user.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
 import Pagination, { IPaging } from '../utils/pagination';
 import PropertyStats from '../models/propertyStats.model';
-import { IInvestorStats, MetricsPeriod, IInvestmentMetrics, ITopInvestment } from '../utils/interface';
+import { IInvestorStats, MetricsPeriod, IInvestmentMetrics, ITopInvestment, IInvestmentOverview } from '../utils/interface';
 import Tokenomics from '../models/tokenomics.model';
 
 export interface IViewInvestmentsQuery {
@@ -336,5 +336,109 @@ export default class InvestmentService {
                 investmentDate: investment.date,
             };
         });
+    }
+
+    static async getInvestmentsOverview(): Promise<IInvestmentOverview> {
+        // Get current period stats with efficient single query
+        const currentStats = await Investment.findAll({
+            attributes: [
+                'status',
+                [fn('COUNT', col('id')), 'count'],
+                [fn('SUM', col('amount')), 'amount'],
+            ],
+            group: ['status'],
+            raw: true,
+        }) as unknown as Array<{
+            status: InvestmentStatus;
+            count: string;
+            amount: string;
+        }>;
+
+        // Calculate previous period for comparison
+        const previousMonth = new Date();
+        previousMonth.setMonth(previousMonth.getMonth() - 1);
+
+        // Get previous period stats efficiently
+        const previousStats = await Investment.findAll({
+            where: {
+                date: {
+                    [Op.lt]: previousMonth,
+                },
+            },
+            attributes: [
+                'status',
+                [fn('COUNT', col('id')), 'count'],
+            ],
+            group: ['status'],
+            raw: true,
+        }) as unknown as Array<{
+            status: InvestmentStatus;
+            count: string;
+        }>;
+
+        // Initialize counters using reduce for better performance
+        const currentTotals = currentStats.reduce((acc, stat) => {
+            const count = parseInt(stat.count);
+            const amount = parseFloat(stat.amount) || 0;
+
+            if (stat.status === InvestmentStatus.Finish) {
+                acc.completed.count = count;
+                acc.completed.amount = amount;
+            } else {
+                acc.pending.count += count;
+                acc.pending.amount += amount;
+            }
+
+            acc.total.count += count;
+            acc.total.amount += amount;
+
+            return acc;
+        }, {
+            total: { count: 0, amount: 0 },
+            completed: { count: 0, amount: 0 },
+            pending: { count: 0, amount: 0 },
+        });
+
+        // Calculate previous period totals
+        const previousTotals = previousStats.reduce((acc, stat) => {
+            const count = parseInt(stat.count);
+
+            if (stat.status === InvestmentStatus.Finish) {
+                acc.completed = count;
+            } else {
+                acc.pending += count;
+            }
+
+            return acc;
+        }, { completed: 0, pending: 0 });
+
+        // Calculate percentage changes with safe division
+        const calculatePercentageChange = (current: number, previous: number): number => {
+            if (previous === 0) return current > 0 ? 100 : 0;
+            return Number(((current - previous) / previous * 100).toFixed(2));
+        };
+
+        return {
+            totalInvestments: {
+                count: currentTotals.total.count,
+                amount: currentTotals.total.amount,
+            },
+            completedInvestments: {
+                count: currentTotals.completed.count,
+                amount: currentTotals.completed.amount,
+                percentageChange: calculatePercentageChange(
+                    currentTotals.completed.count,
+                    previousTotals.completed
+                ),
+            },
+            pendingInvestments: {
+                count: currentTotals.pending.count,
+                amount: currentTotals.pending.amount,
+                percentageChange: calculatePercentageChange(
+                    currentTotals.pending.count,
+                    previousTotals.pending
+                ),
+            },
+        };
     }
 }
