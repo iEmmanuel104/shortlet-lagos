@@ -1,14 +1,15 @@
-import { Op, Transaction, col, fn } from 'sequelize';
+import { Op, Transaction, col, fn, literal } from 'sequelize';
 import Admin, { IAdmin } from '../../models/admin.model';
 import { BadRequestError, NotFoundError } from '../../utils/customErrors';
 import { ADMIN_EMAIL } from '../../utils/constants';
 import moment from 'moment';
 import UserSettings, { IBlockMeta } from '../../models/userSettings.model';
 import SupportTicket, { ISupportTicket } from '../../models/supportTicket.model';
-import Property from '../../models/property.model';
+import Property, { PropertyStatus } from '../../models/property.model';
 import Investment, { InvestmentStatus } from '../../models/investment.model';
-import User from '../../models/user.model';
+import User, { UserType } from '../../models/user.model';
 import { TimePeriod } from '../../utils/interface';
+import PropertyStats from '../../models/propertyStats.model';
 
 interface TimeSeriesMetric {
     period: string;
@@ -54,6 +55,22 @@ interface OverallMetrics {
     totalOwners: number;
     totalInvestors: number;
     totalRevenue: number;
+}
+
+interface TopPropertyMetrics {
+    id: string;
+    name: string;
+    location: string;
+    banner: string;
+    totalInvestment: number;
+    numberOfInvestors: number;
+    yield: number;
+    rating: number;
+    ownerName: string;
+    listingPeriod: {
+        start: Date;
+        end: Date;
+    };
 }
 
 export default class AdminService {
@@ -151,18 +168,14 @@ export default class AdminService {
 
     static async getOverallMetrics(): Promise<OverallMetrics> {
         const [totalProperties, totalOwners, totalInvestors, totalRevenue] = await Promise.all([
-            Property.count(),
-            User.count({
-                include: [{
-                    model: Property,
-                    required: true,
-                }],
+            Property.count({
+                where: { status: PropertyStatus.PUBLISHED },
             }),
             User.count({
-                include: [{
-                    model: Investment,
-                    required: true,
-                }],
+                where: { type: UserType.PROJECT_OWNER },
+            }),
+            User.count({
+                where: { type: UserType.INVESTOR },
             }),
             Investment.sum('amount', {
                 where: { status: InvestmentStatus.Finish },
@@ -202,7 +215,7 @@ export default class AdminService {
         const truncFormat = period === TimePeriod.DAY ? 'YYYY-MM-DD' :
             period === TimePeriod.WEEK ? 'IYYY-IW' : 'YYYY-MM';
 
-        // Get time series data for revenue chart
+        // Get time series data for revenue chart with optimization
         const timeSeriesData = await Investment.findAll({
             attributes: [
                 [fn('to_char', fn('date_trunc', period, col('date')), truncFormat), 'period'],
@@ -217,7 +230,7 @@ export default class AdminService {
             raw: true,
         }) as unknown as Array<{ period: string; amount: string }>;
 
-        // Get all time-based metrics in parallel
+        // Optimize metrics queries with parallel execution and specific conditions
         const [
             currentRevenue,
             previousRevenue,
@@ -243,52 +256,42 @@ export default class AdminService {
             Property.count({
                 where: {
                     createdAt: { [Op.between]: [startDate, now] },
+                    status: PropertyStatus.PUBLISHED,
                 },
             }),
             Property.count({
                 where: {
                     createdAt: { [Op.between]: [previousStartDate, startDate] },
+                    status: PropertyStatus.PUBLISHED,
                 },
             }),
             User.count({
                 where: {
                     createdAt: { [Op.between]: [startDate, now] },
+                    type: UserType.PROJECT_OWNER,
                 },
-                include: [{
-                    model: Property,
-                    required: true,
-                }],
             }),
             User.count({
                 where: {
                     createdAt: { [Op.between]: [previousStartDate, startDate] },
+                    type: UserType.PROJECT_OWNER,
                 },
-                include: [{
-                    model: Property,
-                    required: true,
-                }],
             }),
             User.count({
                 where: {
                     createdAt: { [Op.between]: [startDate, now] },
+                    type: UserType.INVESTOR,
                 },
-                include: [{
-                    model: Investment,
-                    required: true,
-                }],
             }),
             User.count({
                 where: {
                     createdAt: { [Op.between]: [previousStartDate, startDate] },
+                    type: UserType.INVESTOR,
                 },
-                include: [{
-                    model: Investment,
-                    required: true,
-                }],
             }),
         ]);
 
-        // Calculate percentage changes
+        // Calculate percentage changes with null safety
         const calculateChange = (current: number, previous: number) => ({
             amount: current - previous,
             percentage: previous > 0 ? ((current - previous) / previous) * 100 : 0,
@@ -304,18 +307,133 @@ export default class AdminService {
                 })),
             },
             newListings: {
-                count: newListings,
-                change: calculateChange(newListings, previousNewListings),
+                count: newListings || 0,
+                change: calculateChange(newListings || 0, previousNewListings || 0),
             },
             newUsers: {
                 owners: {
-                    count: newOwners,
-                    change: calculateChange(newOwners, previousOwners),
+                    count: newOwners || 0,
+                    change: calculateChange(newOwners || 0, previousOwners || 0),
                 },
                 investors: {
-                    count: newInvestors,
-                    change: calculateChange(newInvestors, previousInvestors),
+                    count: newInvestors || 0,
+                    change: calculateChange(newInvestors || 0, previousInvestors || 0),
                 },
+            },
+        };
+    }
+
+    static async getTopPerformingProperties(limit: number = 10): Promise<TopPropertyMetrics[]> {
+        const topProperties = await Property.findAll({
+            attributes: [
+                'id',
+                'name',
+                'location',
+                'banner',
+                'listingPeriod',
+                [
+                    literal('CONCAT("owner"."firstName", \' \', "owner"."lastName")'),
+                    'ownerName',
+                ],
+            ],
+            include: [
+                {
+                    model: PropertyStats,
+                    required: true,
+                    as: 'stats',
+                    attributes: [
+                        'totalInvestmentAmount',
+                        'numberOfInvestors',
+                        'yield',
+                        'overallRating',
+                    ],
+                },
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['firstName', 'lastName'],
+                },
+            ],
+            where: {
+                status: PropertyStatus.PUBLISHED,
+            },
+            order: [
+                [{ model: PropertyStats, as: 'stats' }, 'totalInvestmentAmount', 'DESC'],
+                [{ model: PropertyStats, as: 'stats' }, 'numberOfInvestors', 'DESC'],
+                [{ model: PropertyStats, as: 'stats' }, 'yield', 'DESC'],
+                [{ model: PropertyStats, as: 'stats' }, 'overallRating', 'DESC'],
+            ],
+            limit,
+        });
+
+        return topProperties.map(property => ({
+            id: property.id,
+            name: property.name,
+            location: property.location,
+            banner: property.banner,
+            listingPeriod: property.listingPeriod,
+            totalInvestment: property.stats?.totalInvestmentAmount || 0,
+            numberOfInvestors: property.stats?.numberOfInvestors || 0,
+            yield: property.stats?.yield || 0,
+            rating: property.stats?.overallRating || 0,
+            ownerName: `${property.owner?.firstName || ''} ${property.owner?.lastName || ''}`.trim(),
+        }));
+    }
+
+    static async getDetailedPropertyMetrics(propertyId: string): Promise<{
+        investmentTrend: TimeSeriesMetric[];
+        visitorTrend: TimeSeriesMetric[];
+        ratings: { [key: number]: number } & { average: number; total: number };
+    }> {
+        const [investmentTrend, visitorStats, ratings] = await Promise.all([
+            // Get investment trend over time
+            Investment.findAll({
+                attributes: [
+                    [fn('DATE_TRUNC', 'day', col('date')), 'period'],
+                    [fn('SUM', col('amount')), 'amount'],
+                ],
+                where: {
+                    propertyId,
+                    status: InvestmentStatus.Finish,
+                },
+                group: [fn('DATE_TRUNC', 'day', col('date'))],
+                order: [[fn('DATE_TRUNC', 'day', col('date')), 'ASC']],
+                raw: true,
+            }) as unknown as Array<{ period: Date; amount: string }>,
+
+            // Get daily visitor count trend (if you have visitor tracking)
+            PropertyStats.findOne({
+                attributes: ['visitCount'],
+                where: { propertyId },
+            }),
+
+            // Get rating distribution
+            Property.findOne({
+                where: { id: propertyId },
+                include: [{
+                    model: PropertyStats,
+                    attributes: ['overallRating', 'ratingCount'],
+                }],
+            }),
+        ]);
+
+        return {
+            investmentTrend: investmentTrend.map(trend => ({
+                period: moment(trend.period).format('YYYY-MM-DD'),
+                amount: Number(trend.amount),
+            })),
+            visitorTrend: [{
+                period: moment().format('YYYY-MM-DD'),
+                amount: visitorStats?.visitCount || 0,
+            }],
+            ratings: {
+                1: 0, // You might want to add a ratings distribution to your PropertyStats model
+                2: 0,
+                3: 0,
+                4: 0,
+                5: 0,
+                average: ratings?.stats?.overallRating || 0,
+                total: ratings?.stats?.ratingCount || 0,
             },
         };
     }
