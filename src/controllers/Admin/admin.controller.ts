@@ -6,6 +6,8 @@ import { AuthUtil } from '../../utils/token';
 import { emailService, EmailTemplate } from '../../utils/Email';
 import UserService from '../../services/user.service';
 import { ADMIN_EMAIL } from '../../utils/constants';
+import InvestmentService from '../../services/investment.service';
+import { TimePeriod } from '../../utils/interface';
 
 export default class AdminController {
 
@@ -203,6 +205,37 @@ export default class AdminController {
             status: 'success',
             message: state ? 'User deactivated successfully' : 'User reactivated successfully',
             data: null,
+        });
+    }
+
+    static async getInvestmentsOverview(req: Request, res: Response) {
+        const overview = await InvestmentService.getInvestmentsOverview();
+        res.status(200).json({
+            status: 'success',
+            message: 'Investment overview retrieved successfully',
+            data: overview,
+        });
+
+    }
+
+    static async getOverallMetrics(req: Request, res: Response) {
+        const metrics = await AdminService.getOverallMetrics();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Overall metrics retrieved successfully',
+            data: metrics,
+        });
+    }
+
+    static async getTimeBasedMetrics(req: Request, res: Response) {
+        const period = (req.query.period as TimePeriod) || TimePeriod.MONTH;
+        const metrics = await AdminService.getTimeBasedMetrics(period);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Time-based metrics retrieved successfully',
+            data: metrics,
         });
     }
 
