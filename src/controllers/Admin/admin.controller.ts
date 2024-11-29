@@ -239,4 +239,31 @@ export default class AdminController {
         });
     }
 
+    static async getTopPerformingProperties(req: Request, res: Response) {
+        const limit = Number(req.query.limit) || 10;
+        const properties = await AdminService.getTopPerformingProperties(limit);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Top performing properties retrieved successfully',
+            data: properties,
+        });
+    }
+
+    static async getDetailedPropertyMetrics(req: Request, res: Response) {
+        const { propertyId } = req.params;
+
+        if (!propertyId) {
+            throw new BadRequestError('Property ID is required');
+        }
+
+        const metrics = await AdminService.getDetailedPropertyMetrics(propertyId);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Property metrics retrieved successfully',
+            data: metrics,
+        });
+    }
+
 }
