@@ -184,3 +184,20 @@ export interface ITopPropertyInvestment {
         amount: number;
     }[];
 }
+
+export interface IInvestmentOverview {
+    totalInvestments: {
+        count: number;
+        amount: number;
+    };
+    completedInvestments: {
+        count: number;
+        amount: number;
+        percentageChange: number;
+    };
+    pendingInvestments: {
+        count: number;
+        amount: number;
+        percentageChange: number;
+    };
+}
