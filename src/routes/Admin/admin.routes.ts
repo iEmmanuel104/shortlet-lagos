@@ -11,5 +11,8 @@ router.get('/admins', adminAuth('admin'), AdminAuthenticatedController(AdminCont
 router.delete('/delete', adminAuth('admin'), AdminAuthenticatedController(AdminController.deleteAdmin));
 router.post('/block-user', adminAuth('admin'), AdminAuthenticatedController(AdminController.blockUser));
 router.post('/deactivate-user', adminAuth('admin'), AdminAuthenticatedController(AdminController.deactivateUser));
+router.get('/investment-overview', AdminController.getInvestmentsOverview);
+router.get('/metrics/overall', adminAuth('admin'), AdminAuthenticatedController(AdminController.getOverallMetrics));
+router.get('/metrics/time-based', adminAuth('admin'), AdminAuthenticatedController(AdminController.getTimeBasedMetrics));
 
 export default router;
