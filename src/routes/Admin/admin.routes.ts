@@ -14,5 +14,7 @@ router.post('/deactivate-user', adminAuth('admin'), AdminAuthenticatedController
 router.get('/investment-overview', AdminController.getInvestmentsOverview);
 router.get('/metrics/overall', AdminController.getOverallMetrics);
 router.get('/metrics/time-based', AdminController.getTimeBasedMetrics);
+router.get('/properties/top-performing', AdminController.getTopPerformingProperties);
+router.get('/properties/:propertyId/metrics', AdminController.getDetailedPropertyMetrics);
 
 export default router;
