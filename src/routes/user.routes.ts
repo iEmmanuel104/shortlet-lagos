@@ -10,7 +10,7 @@ const upload = uploadMiddleware(UploadType.Single, 'file');
 
 router
     .post('/support-ticket', basicAuth(), AuthenticatedController(UserController.createSupportTicket))
-    .get('/', basicAuth(), AuthenticatedController(UserController.getAllUsers))
+    .get('/', UserController.getAllUsers)
     .get('/info', basicAuth(), AuthenticatedController(UserController.getUser))
     .patch('/update', basicAuth(), upload, AuthenticatedController(UserController.updateUser));
     
