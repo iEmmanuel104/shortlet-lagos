@@ -10,11 +10,12 @@ import { Database } from '../models';
 import { TicketType, ISupportTicket } from '../models/supportTicket.model';
 // import { emailService } from '../utils/Email';
 import AdminService from '../services/AdminServices/admin.service';
+import { UserType } from '../models/user.model';
 
 export default class UserController {
 
-    static async getAllUsers(req: AuthenticatedRequest, res: Response) {
-        const { page, size, q, isBlocked, isDeactivated } = req.query;
+    static async getAllUsers(req: Request, res: Response) {
+        const { page, size, q, isBlocked, isDeactivated, type } = req.query;
         const queryParams: Record<string, unknown> = {};
 
         if (page && size) {
@@ -34,6 +35,10 @@ export default class UserController {
         // Add search query if provided
         if (q) {
             queryParams.q = q as string;
+        }
+
+        if (type && Object.values(UserType).includes(type as UserType)) {
+            queryParams.type = type as UserType;
         }
 
         const users = await UserService.viewUsers(queryParams);
