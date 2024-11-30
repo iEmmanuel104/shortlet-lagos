@@ -20,14 +20,20 @@ export default class Referral extends Model<Referral | IReferral> {
     @Column
         refereeId: string;
 
-    @BelongsTo(() => User, 'refereeId')
+    @BelongsTo(() => User, {
+        foreignKey: 'refereeId',
+        as: 'referee',
+    })
         referee: User;
 
     @ForeignKey(() => User)
     @Column
         referredId: string;
 
-    @BelongsTo(() => User, 'referredId')
+    @BelongsTo(() => User, {
+        foreignKey: 'referredId',
+        as: 'referred',
+    })
         referred: User;
 
     @Column({
