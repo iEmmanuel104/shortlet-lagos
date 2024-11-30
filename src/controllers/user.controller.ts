@@ -1,7 +1,7 @@
 import { Response, Request } from 'express';
 import UserService from '../services/user.service';
 import { BadRequestError } from '../utils/customErrors';
-import { AuthenticatedRequest } from '../middlewares/authMiddleware';
+import { AdminAuthenticatedRequest, AuthenticatedRequest } from '../middlewares/authMiddleware';
 import CloudinaryClientConfig from '../clients/cloudinary.config';
 import Validator from '../utils/validators';
 import { logger } from '../utils/logger';
@@ -49,21 +49,25 @@ export default class UserController {
         });
     }
 
-    static async getUser(req: AuthenticatedRequest, res: Response) {
+    static async getUser(req: Request, res: Response) {
         const { id } = req.query;
 
-        const user = await UserService.viewSingleUser(id as string);
+        // Check if request is from an admin
+        const isAdmin = (req as AdminAuthenticatedRequest).admin !== undefined;
+        console.log({ isAdmin });
+        const user = await UserService.viewSingleUser(id as string, isAdmin);
 
         res.status(200).json({
             status: 'success',
             message: 'User retrieved successfully',
             data: user,
         });
+
     }
 
     static async updateUser(req: AuthenticatedRequest, res: Response) {
         const { email, firstName, lastName, otherName, displayImage, gender, isDeactivated } = req.body;
-        
+
         if (email && !Validator.isValidEmail(email)) {
             throw new BadRequestError('Invalid email');
         }
