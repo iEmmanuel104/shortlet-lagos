@@ -6,6 +6,13 @@ import Pagination, { IPaging } from '../utils/pagination';
 import { Sequelize } from '../models';
 import UserSettings, { IUserSettings } from '../models/userSettings.model';
 import HelperUtils from '../utils/helpers';
+import Blog from '../models/blog.model';
+import Investment from '../models/investment.model';
+import Property from '../models/property.model';
+import Referral from '../models/referral.model';
+import SupportTicket from '../models/supportTicket.model';
+import VerificationDoc from '../models/verificationDocs.model';
+import WithdrawalRequest from '../models/withdrawalRequest.model';
 
 export interface IViewUsersQuery {
     page?: number;
@@ -180,8 +187,77 @@ export default class UserService {
         }
     }
 
-    static async viewSingleUser(id: string): Promise<User> {
-        const user: User | null = await User.scope('withSettings').findByPk(id);
+    static async viewSingleUser(id: string, isAdmin?: boolean): Promise<User> {
+        const user = await User.findByPk(id, {
+            include: [
+                {
+                    model: UserSettings,
+                    required: true,
+                    attributes: ['joinDate', 'isBlocked', 'isDeactivated', 'lastLogin', 'meta'],
+                },
+                ...(isAdmin ? [
+                    {
+                        model: Property,
+                        required: false,
+                        attributes: [
+                            'id', 'name', 'description', 'location', 'price',
+                            'status', 'contractAddress', 'listingPeriod', 'metrics',
+                            'createdAt', 'category',
+                        ],
+                    },
+                    {
+                        model: Investment,
+                        required: false,
+                        attributes: [
+                            'id', 'amount', 'date', 'sharesAssigned',
+                            'estimatedReturns', 'status', 'propertyId',
+                        ],
+                    },
+                    {
+                        model: VerificationDoc,
+                        required: false,
+                        attributes: ['id', 'documents', 'status'],
+                    },
+                    {
+                        model: SupportTicket,
+                        required: false,
+                        attributes: ['id', 'subject', 'message', 'type', 'state', 'createdAt'],
+                    },
+                    {
+                        model: WithdrawalRequest,
+                        required: false,
+                        attributes: ['id', 'amount', 'status', 'createdAt'],
+                    },
+                    {
+                        model: Blog,
+                        required: false,
+                        attributes: ['id', 'title', 'status', 'createdAt'],
+                    },
+                    {
+                        model: Referral,
+                        as: 'referrals',
+                        required: false,
+                        attributes: ['id', 'status', 'referredId', 'refereeId'],
+                        include: [{
+                            model: User,
+                            as: 'referred',
+                            attributes: ['id', 'displayImage', 'username'],
+                        }],
+                    },
+                    {
+                        model: Referral,
+                        as: 'referred',
+                        required: false,
+                        attributes: ['id', 'status', 'referredId', 'refereeId'],
+                        include: [{
+                            model: User,
+                            as: 'referee',
+                            attributes: ['id', 'displayImage', 'username'],
+                        }],
+                    },
+                ] : []),
+            ],
+        });
 
         if (!user) {
             throw new NotFoundError('Oops User not found');
