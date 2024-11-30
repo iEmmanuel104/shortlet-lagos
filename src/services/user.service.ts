@@ -1,5 +1,5 @@
 import { Transaction, Op, FindAndCountOptions } from 'sequelize';
-import User, { IUser } from '../models/user.model';
+import User, { IUser, UserType } from '../models/user.model';
 import { NotFoundError, BadRequestError } from '../utils/customErrors';
 import Validator from '../utils/validators';
 import Pagination, { IPaging } from '../utils/pagination';
@@ -13,6 +13,7 @@ export interface IViewUsersQuery {
     q?: string;
     isBlocked?: boolean;
     isDeactivated?: boolean;
+    type?: UserType;
 }
 
 export interface IDynamicQueryOptions {
@@ -110,19 +111,31 @@ export default class UserService {
     }
 
     static async viewUsers(queryData?: IViewUsersQuery): Promise<{ users: User[], count: number, totalPages?: number }> {
-        const { page, size, q: query, isBlocked, isDeactivated } = queryData || {};
+        const { page, size, q: query, isBlocked, isDeactivated, type } = queryData || {};
 
         const where: Record<string | symbol, unknown> = {};
         const settingsWhere: Record<string, unknown> = {};
 
+        // Add search query conditions
         if (query) {
             where[Op.or] = [
                 { firstName: { [Op.iLike]: `%${query}%` } },
                 { lastName: { [Op.iLike]: `%${query}%` } },
                 { username: { [Op.iLike]: `%${query}%` } },
                 { email: { [Op.iLike]: `%${query}%` } },
-                Sequelize.where(Sequelize.fn('concat', Sequelize.col('User.firstName'), ' ', Sequelize.col('User.lastName')), { [Op.iLike]: `%${query}%` }),
+                Sequelize.where(
+                    Sequelize.fn('concat',
+                        Sequelize.col('User.firstName'),
+                        ' ',
+                        Sequelize.col('User.lastName')
+                    ),
+                    { [Op.iLike]: `%${query}%` }
+                ),
             ];
+        }
+
+        if (type && Object.values(UserType).includes(type)) {
+            where.type = type;
         }
 
         if (isBlocked !== undefined) {
@@ -143,8 +156,10 @@ export default class UserService {
                     where: settingsWhere,
                 },
             ],
+            order: [['createdAt', 'DESC']],
         };
 
+        // Add pagination if provided
         if (page && size && page > 0 && size > 0) {
             const { limit, offset } = Pagination.getPagination({ page, size } as IPaging);
             queryOptions.limit = limit || 0;
@@ -156,6 +171,7 @@ export default class UserService {
         // Calculate the total count
         const totalCount = (count as unknown as []).length;
 
+        // Return with pagination info if pagination was requested
         if (page && size && users.length > 0) {
             const totalPages = Pagination.estimateTotalPage({ count: totalCount, limit: size } as IPaging);
             return { users, count: totalCount, ...totalPages };
