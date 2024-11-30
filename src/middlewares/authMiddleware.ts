@@ -110,21 +110,22 @@ export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
             }
 
             let emailToUse = (tokenData.authKey as string).toLowerCase().trim();
-
-            if ((tokenData.authKey as string) !== ADMIN_EMAIL) {
-                const admin = await AdminService.getAdminByEmail(tokenData.authKey as string);
-
+            let admin = { email: emailToUse, name: 'Owner', isSuperAdmin: true };
+            if (tokenData.authKey !== ADMIN_EMAIL) {
+                admin = await AdminService.getAdminByEmail(tokenData.authKey as string);
+                emailToUse = admin.email;
+                
                 if (!admin) {
                     throw new NotFoundError('Admin not found');
                 }
-
+                
                 emailToUse = admin.email;
-                (req as AdminAuthenticatedRequest).admin = admin;
-                (req as AdminAuthenticatedRequest).isSuperAdmin = admin.isSuperAdmin;
             } else {
                 (req as AdminAuthenticatedRequest).isSuperAdmin = true;
             }
-
+            
+            (req as AdminAuthenticatedRequest).admin = admin as Admin;
+            (req as AdminAuthenticatedRequest).isSuperAdmin = admin.isSuperAdmin;
             (req as AdminAuthenticatedRequest).email = emailToUse;
 
             next();
