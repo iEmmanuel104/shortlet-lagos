@@ -14,6 +14,8 @@ import VerificationDoc from './verificationDocs.model';
 import WithdrawalRequest from './withdrawalRequest.model';
 import Referral from './referral.model';
 import SupportTicket from './supportTicket.model';
+import Investment from './investment.model';
+import Property from './property.model';
 
 export enum UserType {
     INVESTOR = 'investor',
@@ -208,10 +210,16 @@ export default class User extends Model<User | IUser> {
     @HasMany(() => Review)
         reviews: Review[];
 
-    @HasMany(() => Referral)
+    @HasMany(() => Referral, {
+        foreignKey: 'refereeId',
+        as: 'referrals',
+    })
         referrals: Referral[];
-    
-    @HasMany(() => Referral)
+
+    @HasMany(() => Referral, {
+        foreignKey: 'referredId',
+        as: 'referred',
+    })
         referred: Referral[];
 
     @HasOne(() => VerificationDoc)
@@ -222,6 +230,18 @@ export default class User extends Model<User | IUser> {
 
     @HasMany(() => SupportTicket)
         supportTickets: SupportTicket[];
+
+    @HasMany(() => Property, {
+        foreignKey: 'ownerId',
+        as: 'properties',
+    })
+        properties: Property[];
+
+    @HasMany(() => Investment, {
+        foreignKey: 'investorId',
+        as: 'investments',
+    })
+        investments: Investment[];
 
     @BeforeFind
     static beforeFindHook(options: FindOptions) {
