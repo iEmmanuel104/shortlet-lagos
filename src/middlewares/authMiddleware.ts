@@ -114,16 +114,16 @@ export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
             if (tokenData.authKey !== ADMIN_EMAIL) {
                 admin = await AdminService.getAdminByEmail(tokenData.authKey as string);
                 emailToUse = admin.email;
-                
+
                 if (!admin) {
                     throw new NotFoundError('Admin not found');
                 }
-                
+
                 emailToUse = admin.email;
             } else {
                 (req as AdminAuthenticatedRequest).isSuperAdmin = true;
             }
-            
+
             (req as AdminAuthenticatedRequest).admin = admin as Admin;
             (req as AdminAuthenticatedRequest).isSuperAdmin = admin.isSuperAdmin;
             (req as AdminAuthenticatedRequest).email = emailToUse;
@@ -140,9 +140,21 @@ export const adminAuth = function (tokenType: ENCRYPTEDTOKEN) {
 
 // Add custom middleware to allow optional authentication
 export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
-    // check if the request has an authorization header and it is not an iAdmin request
-    if (req.headers.authorization && !req.headers['x-iadmin-access'] && req.headers['x-iadmin-access'] !== 'true') {
-        return basicAuth()(req, res, next);
+    const authHeader = req.headers.authorization;
+    // If no auth header, continue as public request
+    if (!authHeader) {
+        console.log('Public request');
+        return next();
     }
-    return next();
+
+    // Check if it's an admin request
+    if (req.headers['x-iadmin-access'] === 'true') {
+        console.log('Admin request');
+        return adminAuth('admin')(req, res, next);
+    }
+
+    // If it has authorization but not admin, treat as user auth
+    console.log('User request');
+    return basicAuth()(req, res, next);
+
 };
