@@ -59,12 +59,12 @@ export default class AdminController {
     static async verifySuperAdminLogin(req: Request, res: Response) {
         const { otpToken, otpCode } = req.body;
 
-        
+
         try {
             // Verify the OTP token and extract the original OTP
             const decoded = AuthUtil.verifyAdminOTPToken(otpToken);
             console.log({ body: req.body, decoded });
-            
+
             if (decoded.type !== 'otp_verification') {
                 throw new BadRequestError('Invalid token type');
             }
@@ -102,6 +102,8 @@ export default class AdminController {
 
     static async createAdmin(req: AdminAuthenticatedRequest, res: Response) {
         const { name, email, isSuperAdmin } = req.body;
+
+        console.log({ body: req.body, admin: req.admin });
 
         if (req.admin.isSuperAdmin === false) {
             throw new ForbiddenError('Only super admin can create new admins');
