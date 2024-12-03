@@ -318,35 +318,6 @@ export default class PropertyController {
         });
     }
 
-    static async reviewProperty(req: Request, res: Response) {
-        const { id } = req.params;
-        const { approved, rejectionReason } = req.body;
-
-        if (!id) {
-            throw new BadRequestError('Property ID is required');
-        }
-
-        // Verify user is an admin
-        // if (req.user.type !== UserType.ADMIN) {
-        //     throw new UnauthorizedError('Only administrators can review properties');
-        // }
-
-        const property = await PropertyService.viewProperty(id);
-
-        // Validate property is in review status
-        // if (property.status !== PropertyStatus.UNDER_REVIEW) {
-        //     throw new BadRequestError('Only properties under review can be processed');
-        // }
-
-        const updatedProperty = await PropertyService.reviewProperty(property, approved, rejectionReason);
-
-        res.status(200).json({
-            status: 'success',
-            message: `Property ${approved ? 'approved' : 'rejected'} successfully`,
-            data: updatedProperty,
-        });
-    }
-
     static async deleteProperty(req: AuthenticatedRequest, res: Response) {
         const { id } = req.params;
 
