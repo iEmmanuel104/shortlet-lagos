@@ -8,6 +8,8 @@ import UserService from '../../services/user.service';
 import { ADMIN_EMAIL } from '../../utils/constants';
 import InvestmentService from '../../services/investment.service';
 import { TimePeriod } from '../../utils/interface';
+import PropertyService from '../../services/property.service';
+import { PropertyStatus } from '../../models/property.model';
 
 export default class AdminController {
 
@@ -265,6 +267,29 @@ export default class AdminController {
             status: 'success',
             message: 'Property metrics retrieved successfully',
             data: metrics,
+        });
+    }
+
+    static async reviewProperty(req: AdminAuthenticatedRequest, res: Response) {
+        const { id } = req.params;
+        const { approved, rejectionReason } = req.body;
+
+        if (!id) {
+            throw new BadRequestError('Property ID is required');
+        }
+        const property = await PropertyService.viewProperty(id);
+
+        // Validate property is in review status
+        if (property.status !== PropertyStatus.UNDER_REVIEW) {
+            throw new BadRequestError('Only properties under review can be processed');
+        }
+
+        const updatedProperty = await PropertyService.reviewProperty(property, approved, rejectionReason, req.admin.email);
+
+        res.status(200).json({
+            status: 'success',
+            message: `Property ${approved ? 'approved' : 'rejected'} successfully`,
+            data: updatedProperty,
         });
     }
 
