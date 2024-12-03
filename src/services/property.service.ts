@@ -1,5 +1,5 @@
 import { Transaction, Op, Includeable, col, fn, literal } from 'sequelize';
-import Property, { IProperty, PropertyStatus } from '../models/property.model';
+import Property, { IProperty, IRejectionHistory, PropertyStatus } from '../models/property.model';
 import User from '../models/user.model';
 import Investment, { InvestmentStatus } from '../models/investment.model';
 import { BadRequestError, NotFoundError } from '../utils/customErrors';
@@ -625,7 +625,8 @@ export default class PropertyService {
     static async reviewProperty(
         property: Property,
         approved: boolean,
-        rejectionReason?: string
+        rejectionReason?: string,
+        adminId?: string
     ): Promise<Property> {
         if (approved) {
             // Create property token when approved
@@ -637,8 +638,6 @@ export default class PropertyService {
                 ownerAddress: property.owner.walletAddress, // Assuming ownerId is the wallet address
             };
 
-            // await Web3ClientConfig.getFactoryUSDCAddress();
-            // const contractAddress = await Web3ClientConfig.createPropertyToken(tokenParams);
             const contractAddress = await createRealEstateToken({
                 propertyName: tokenParams.name,
                 symbol: tokenParams.symbol,
@@ -659,10 +658,18 @@ export default class PropertyService {
             if (!rejectionReason) {
                 throw new BadRequestError('Rejection reason is required when rejecting a property');
             }
+
+            const rejectionEntry: IRejectionHistory = {
+                reason: rejectionReason || 'No reason provided',
+                date: new Date().toISOString(),
+                adminId: adminId || 'system',
+            };
+
+            const existingHistory = property.rejectionHistory || [];
+
             await property.update({
                 status: PropertyStatus.DRAFT,
-                // You might want to add a rejectionReason field to your model
-                // rejectionReason: rejectionReason
+                rejectionHistory: [...existingHistory, rejectionEntry],
             });
         }
 
