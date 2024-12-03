@@ -14,6 +14,12 @@ export enum PropertyStatus {
     SOLD = 'sold',
 }
 
+export interface IRejectionHistory {
+    reason: string;
+    date: string;
+    adminId: string;
+}
+
 @Table
 export default class Property extends Model<Property | IProperty> {
     @IsUUID(4)
@@ -73,6 +79,9 @@ export default class Property extends Model<Property | IProperty> {
     @Column
         ownerId: string;
 
+    @Column(DataType.JSONB)
+        rejectionHistory: IRejectionHistory[];
+    
     // Relationships
     @HasOne(() => PropertyStats, { onDelete: 'CASCADE' })
         stats: PropertyStats;
@@ -112,4 +121,5 @@ export interface IProperty {
         PAR?: number;
     };
     ownerId: string;
+    rejectionHistory?: IRejectionHistory[];
 }
