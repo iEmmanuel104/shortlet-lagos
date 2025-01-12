@@ -1,6 +1,6 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, IsUUID } from 'sequelize-typescript';
 import Property from './property.model';
-import Investment from './investment.model';
+import Investment, { InvestmentStatus } from './investment.model';
 
 @Table
 export default class PropertyStats extends Model<PropertyStats | IPropertyStats> {
@@ -35,30 +35,55 @@ export default class PropertyStats extends Model<PropertyStats | IPropertyStats>
 }
 
 export async function calculateAndUpdateYield(propertyId: string) {
-    const investments = await Investment.findAll({
-        where: { propertyId },
+    const property = await Property.findByPk(propertyId, {
+        include: [
+            {
+                model: Investment,
+                where: { status: InvestmentStatus.Finish },
+            },
+        ],
     });
+
+    if (!property) return;
 
     let totalInvestment = 0;
     let totalEstimatedReturns = 0;
+    const activeInvestors = new Set();
 
-    investments.forEach(investment => {
-        totalInvestment += Number(investment.amount);
-        totalEstimatedReturns += Number(investment.estimatedReturns);
+    property.investments.forEach(investment => {
+        const amount = Number(investment.amount);
+        const returns = Number(investment.estimatedReturns);
+
+        if (!isNaN(amount) && !isNaN(returns)) {
+            totalInvestment += amount;
+            totalEstimatedReturns += returns;
+            activeInvestors.add(investment.investorId);
+        }
     });
 
-    const propertyStats = await PropertyStats.findOne({ where: { propertyId } });
-    if (propertyStats) {
-        // Calculate yield as percentage: (Total Returns - Total Investment) / Total Investment * 100
-        const yieldValue = totalInvestment > 0
-            ? ((totalEstimatedReturns - totalInvestment) / totalInvestment) * 100
-            : 0;
+    // Calculate annual yield rate
+    const annualYield = totalInvestment > 0
+        ? ((totalEstimatedReturns - totalInvestment) / totalInvestment) * 100
+        : 0;
 
-        propertyStats.yield = Number(yieldValue.toFixed(2));
-        propertyStats.totalInvestmentAmount = totalInvestment;
-        propertyStats.totalEstimatedReturns = totalEstimatedReturns;
-        await propertyStats.save();
-    }
+    // Update or create property stats
+    const [propertyStats] = await PropertyStats.findOrCreate({
+        where: { propertyId },
+        defaults: {
+            propertyId,
+            yield: 0,
+            totalInvestmentAmount: 0,
+            totalEstimatedReturns: 0,
+            numberOfInvestors: 0,
+        },
+    });
+
+    await propertyStats.update({
+        yield: Number(annualYield.toFixed(2)),
+        totalInvestmentAmount: Number(totalInvestment.toFixed(2)),
+        totalEstimatedReturns: Number(totalEstimatedReturns.toFixed(2)),
+        numberOfInvestors: activeInvestors.size,
+    });
 }
 
 export async function updatePropertyStatsRating(propertyId: string, newRating: number, isNew: boolean, oldRating?: number) {

@@ -19,8 +19,42 @@ export interface IViewInvestmentsQuery {
 }
 
 export default class InvestmentService {
-    static async addInvestment(investmentData: IInvestment, transaction?: Transaction): Promise<Investment> {
-        const newInvestment = await Investment.create({ ...investmentData }, { transaction });
+    static async addInvestment(investmentData: Partial<IInvestment>): Promise<Investment> {
+        const { propertyId, amount, sharesAssigned, investorId } = investmentData;
+
+        // Validate essential fields
+        if (!propertyId || !amount || !sharesAssigned || !investorId) {
+            throw new BadRequestError('Missing required investment fields');
+        }
+
+        // Fetch property details to calculate returns
+        const property = await Property.findByPk(propertyId, {
+            include: [{ model: PropertyStats }, { model: User, as: 'owner' }],
+        });
+
+        if (!property) {
+            throw new NotFoundError('Property not found');
+        }
+
+        // Calculate estimated returns based on property metrics and tokenomics
+        const annualYield = property.stats?.yield || 15; // Default 15% if not set
+        const estimatedReturns = amount * (1 + (annualYield / 100));
+
+        // Create complete investment record
+        const completeInvestmentData: IInvestment = {
+            propertyId,
+            amount,
+            date: new Date(),
+            sharesAssigned,
+            estimatedReturns,
+            status: InvestmentStatus.Finish, // Set default status
+            propertyOwner: property.owner.id,
+            investorId,
+        };
+
+        const newInvestment = await Investment.create(completeInvestmentData);
+
+        // Property stats will be updated via Investment model hooks
         return newInvestment;
     }
 
