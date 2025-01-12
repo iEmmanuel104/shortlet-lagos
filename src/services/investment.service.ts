@@ -145,16 +145,16 @@ export default class InvestmentService {
     }
 
     static async validateInvestmentData(data: Partial<IInvestment>): Promise<Partial<IInvestment>> {
-        const { propertyId, amount, sharesAssigned, estimatedReturns, status, propertyOwner, investorId } = data;
+        const { propertyId, amount, sharesAssigned, investorId } = data;
 
         const missingFields = [];
 
         if (!propertyId) missingFields.push('propertyId');
         if (!amount) missingFields.push('amount');
         if (!sharesAssigned) missingFields.push('sharesAssigned');
-        if (!estimatedReturns) missingFields.push('estimatedReturns');
-        if (!status) missingFields.push('status');
-        if (!propertyOwner) missingFields.push('propertyOwner');
+        // if (!estimatedReturns) missingFields.push('estimatedReturns');
+        // if (!status) missingFields.push('status');
+        // if (!propertyOwner) missingFields.push('propertyOwner');
         if (!investorId) missingFields.push('investorId');
 
         if (missingFields.length > 0) {
